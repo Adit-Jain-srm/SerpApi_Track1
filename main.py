@@ -1,0 +1,132 @@
+"""
+main.py: Entry point for the AI Tool Discovery Agent.
+Sets up logging, runs the async pipeline, prints results, and optionally posts to Microsoft Teams and Slack.
+"""
+import argparse
+import asyncio
+import logging
+import os
+import sys
+from dataclasses import replace
+from typing import Any
+
+from agents.config_agent import (
+    Settings,
+    load_settings,
+    require_serpapi_key,
+    setup_logging,
+    validate_critical_config,
+)
+from agents.pipeline_agent import run_pipeline
+from agents.search_agent import SearchClient, SearchFailed
+from output.console import print_summary
+from output.slack import send_tool_to_slack
+from output.teams import send_tool_to_teams
+
+
+def build_parser() -> argparse.ArgumentParser:
+    """Build the discovery CLI."""
+    parser = argparse.ArgumentParser(
+        description="Discover recently launched AI tools and deliver a digest.",
+    )
+    parser.add_argument(
+        "--days",
+        type=int,
+        default=None,
+        help="Date window in days. Defaults to SEARCH_DAYS from the environment, or 7.",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print the comparison table without fetching pages, calling Azure, or posting to Teams or Slack.",
+    )
+    parser.add_argument(
+        "--skip-teams",
+        action="store_true",
+        help="Print the console summary and skip the Teams webhook.",
+    )
+    parser.add_argument(
+        "--skip-slack",
+        action="store_true",
+        help="Print the console summary and skip Slack, even when the bot token and channel ID are set.",
+    )
+    parser.add_argument(
+        "--max-urls",
+        type=int,
+        default=None,
+        help="Maximum candidates to keep after comparison.",
+    )
+    return parser
+
+
+def _settings_from_args(args: argparse.Namespace) -> Settings:
+    settings = load_settings()
+    updates: dict[str, Any] = {
+        "dry_run": args.dry_run,
+        "skip_teams": args.skip_teams,
+    }
+    if args.days is not None:
+        updates["search_days"] = args.days
+    if args.max_urls is not None:
+        updates["max_urls"] = args.max_urls
+    return replace(settings, **updates)
+
+
+def main(argv: list[str] | None = None, client: SearchClient | None = None) -> int:
+    """Run the discovery pipeline. Returns a process exit code."""
+    setup_logging()
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    if args.days is not None and args.days < 1:
+        parser.error("--days must be a positive integer")
+    if args.max_urls is not None and args.max_urls < 1:
+        parser.error("--max-urls must be a positive integer")
+
+    settings = _settings_from_args(args)
+    if settings.dry_run:
+        if client is None:
+            require_serpapi_key()
+    else:
+        validate_critical_config()
+
+    if not settings.dry_run:
+        print("Running AI Tool Discovery Agent...")
+
+    try:
+        tools = asyncio.run(run_pipeline(settings, client=client))
+    except SearchFailed as exc:
+        logging.error("%s", exc)
+        print(str(exc), file=sys.stderr)
+        return 1
+
+    if settings.dry_run:
+        return 0
+
+    print_summary(tools)
+    if settings.skip_teams:
+        logging.info("Skipping Teams notification.")
+    else:
+        webhook = os.environ.get("TEAMS_WEBHOOK_URL")
+        if webhook:
+            for index, tool in enumerate(tools, 1):
+                if tool.ai_tool_annotation == "ai_tool":
+                    send_tool_to_teams(tool, index, webhook)
+    if args.skip_slack:
+        logging.info("Skipping Slack notification.")
+    else:
+        slack_token = (os.environ.get("SLACK_BOT_TOKEN") or "").strip()
+        slack_channel = (os.environ.get("SLACK_CHANNEL_ID") or "").strip()
+        if not slack_token or not slack_channel:
+            logging.warning("SLACK_BOT_TOKEN or SLACK_CHANNEL_ID not set. Skipping Slack notification.")
+        else:
+            for index, tool in enumerate(tools, 1):
+                if tool.ai_tool_annotation == "ai_tool":
+                    try:
+                        send_tool_to_slack(tool, index, slack_token, slack_channel)
+                    except Exception:
+                        logging.error("Slack notification failed for tool %s.", index)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
