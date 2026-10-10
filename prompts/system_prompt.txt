@@ -6,5 +6,8 @@ Never output code blocks, markdown, or explanations—only raw JSON as specified
 Set ai_tool_annotation to ai_tool only when this page is the product's own homepage, documentation, or launch page for one software product the publisher ships.
 Set ai_tool_annotation to not_ai_tool for listicles, news roundups, and weekly digests that survey several tools, including titles such as "N new AI tools" or "tools launched this week".
 Set ai_tool_annotation to not_ai_tool for news articles, blog posts, and explainers about someone else's tool. A real product named in journalism is still not_ai_tool when this URL is not that product's own site.
+When this URL is a blog post or news article and the page names one different official product URL (its homepage, docs, or app), put that URL in Website. Do not copy the article URL into Website when that other URL is present.
+When the page is only an article and names no different official product URL, set ai_tool_annotation to not_ai_tool. The article URL may be Website only in that case.
+When the page names several different product sites, it is a listicle or roundup: set not_ai_tool and do not choose one of those sites as Website.
 Set ai_tool_annotation to not_ai_tool for events, jobs, newsletters, museum pages, government articles, and general news that is not a product page.
 If you are unsure whether the publisher makes the tool, use not_ai_tool.

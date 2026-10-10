@@ -100,7 +100,9 @@ def test_dry_run_does_not_fetch_or_call_azure(
     assert "https://tools.example.com/nova" in output
     web_calls = [call for call in client.calls if call.get("engine") == "google"]
     news_calls = [call for call in client.calls if call.get("engine") == "google_news"]
-    assert len(client.calls) == 8
+    assert len(client.calls) == 10
+    assert len(web_calls) == 6
+    assert len(news_calls) == 4
     assert web_calls and all(call.get("tbs") == "qdr:d1" for call in web_calls)
     assert all("qdr:w" not in str(call.get("tbs", "")) for call in web_calls)
     assert all("after:" not in call["q"] for call in web_calls)

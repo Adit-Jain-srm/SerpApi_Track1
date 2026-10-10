@@ -21,7 +21,7 @@ Judges look at the idea, originality, complexity, usefulness, and whether search
 - Web search is pinned to `google` with `tbs=qdr:d{N}` (seven days is `tbs=qdr:d7`). Web queries do not get an `after:` suffix.
 - News search is `google_news`. The cutoff is `after:YYYY-MM-DD` inside the query, using the UTC start of the window. News does not receive `tbs`.
 
-The query set is four launch intents: new tool, new app, now available, and open-source launch. Four queries times two engines is eight searches, which stays inside the free monthly credit pool.
+The query set is four launch intents — new tool, new app, now available, and open-source launch — on web and news, plus two homepage intents on web only. That is ten searches, which stays inside the free monthly credit pool.
 
 ### Search
 
@@ -49,7 +49,7 @@ Record the terminal and this README. No live key on screen. Blur `.env` if it is
 | Time | On screen | What to say |
 |---|---|---|
 | 0:00–0:20 | README title and author | "This is a digest of AI tools that launched inside a date window, for a team that cannot watch the open web. The project existed before this hackathon. This submission is Track 01." |
-| 0:20–0:40 | `.env.example` and `docs/KEYS.md` | "SerpApi web and news are required. Serper is not used. The key stays in `.env`. A run is eight searches because of the free credit pool." |
+| 0:20–0:40 | `.env.example` and `docs/KEYS.md` | "SerpApi web and news are required. Serper is not used. The key stays in `.env`. A run is ten searches because of the free credit pool." |
 | 0:40–1:25 | `python main.py --dry-run --days 7` | "Plan, then search, then compare. Web is Google with `tbs=qdr:d7`. News uses `after:` and the UTC date seven days back. This table is the candidate list. Nothing is fetched." |
 | 1:25–2:20 | `python main.py --days 7 --max-urls 3 --skip-teams --skip-slack` | "Compare already chose the URLs. Azure extracts only those pages. Teams and Slack are skipped. The console list is the digest." |
 | 2:20–2:40 | Sample Teams message in the README | "With a webhook, each tool is this message. The website line is omitted when it matches the source." |

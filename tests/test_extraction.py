@@ -1,10 +1,18 @@
 """Azure extraction request shape and prompt rules. No network."""
 import asyncio
+from pathlib import Path
 
 import pytest
 
 from agents.scraper_agent import extract_tool_info_with_llm
 from utils.prompt_loader import load_prompt
+
+FIXTURE_DIR = Path(__file__).parent / "fixtures"
+ARTICLE_URL = (
+    "https://blog.google/innovation-and-ai/models-and-research/"
+    "google-deepmind/synth-id-ai-content/"
+)
+PRODUCT_URL = "https://deepmind.google/models/synthid/"
 
 
 def test_extraction_sends_max_completion_tokens(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -110,5 +118,144 @@ def test_prompts_reject_roundups_and_third_party_articles() -> None:
     assert "news roundup" in combined
     assert "someone else's tool" in combined
     assert "not_ai_tool" in combined
+    assert "different official product url" in combined
+    assert "only an article" in combined
+    assert "several different product sites" in combined
+    assert "do not copy the article url" in combined
     assert "err on the side of 'ai_tool'" not in combined
     assert "if unsure, use 'not_ai_tool'" in user.lower()
+
+
+def _fake_client(content: str):
+    class _Message:
+        def __init__(self) -> None:
+            self.content = content
+
+    class _Choice:
+        message = _Message()
+
+    class _Response:
+        choices = [_Choice()]
+
+    class _Completions:
+        async def create(self, **kwargs):
+            return _Response()
+
+    class _Chat:
+        completions = _Completions()
+
+    class _Client:
+        chat = _Chat()
+
+    return _Client()
+
+
+def _patch_llm(monkeypatch: pytest.MonkeyPatch, content: str) -> None:
+    monkeypatch.setattr("agents.scraper_agent._get_client", lambda: _fake_client(content))
+    monkeypatch.setattr("agents.scraper_agent._deployment", "gpt-4o")
+    monkeypatch.setattr(
+        "agents.scraper_agent._get_prompts",
+        lambda: ("system", "URL: {url}\nHTML: {html_trunc}"),
+    )
+
+
+def test_article_fixture_uses_named_product_url(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A blog post that names one product URL must not keep the article as Website."""
+    html = (FIXTURE_DIR / "article_names_product.html").read_text(encoding="utf-8")
+    _patch_llm(
+        monkeypatch,
+        (
+            '{"Title":"SynthID Detector","Website":"' + ARTICLE_URL + '",'
+            '"Core Functionality":"Detects SynthID watermarks.",'
+            '"Source URL":"' + ARTICLE_URL + '","ai_tool_annotation":"ai_tool"}'
+        ),
+    )
+
+    tool = asyncio.run(extract_tool_info_with_llm(html, ARTICLE_URL))
+
+    assert tool.website == PRODUCT_URL
+    assert tool.source == ARTICLE_URL
+    assert tool.ai_tool_annotation == "ai_tool"
+    assert tool.website != tool.source
+
+
+def test_article_product_url_does_not_accept_third_party_page(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Finding a product URL fills Website. It does not turn an article into ai_tool."""
+    html = (FIXTURE_DIR / "article_names_product.html").read_text(encoding="utf-8")
+    _patch_llm(
+        monkeypatch,
+        (
+            '{"Title":"SynthID Detector","Website":"' + ARTICLE_URL + '",'
+            '"Source URL":"' + ARTICLE_URL + '","ai_tool_annotation":"not_ai_tool"}'
+        ),
+    )
+
+    tool = asyncio.run(extract_tool_info_with_llm(html, ARTICLE_URL))
+
+    assert tool.website == PRODUCT_URL
+    assert tool.ai_tool_annotation == "not_ai_tool"
+
+
+def test_article_without_product_url_stays_not_ai_tool(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An article that names no other URL stays not_ai_tool and may use its own URL."""
+    page = "https://blog.example.com/posts/weekly-note"
+    _patch_llm(
+        monkeypatch,
+        (
+            '{"Title":"Weekly note","Website":"https://hallucinated.example/",'
+            '"Source URL":"' + page + '","ai_tool_annotation":"ai_tool"}'
+        ),
+    )
+
+    tool = asyncio.run(
+        extract_tool_info_with_llm("<article><h1>Weekly note</h1><p>No product page.</p></article>", page)
+    )
+
+    assert tool.website == page
+    assert tool.ai_tool_annotation == "not_ai_tool"
+
+
+def test_listicle_fixture_is_not_one_product(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Several product sites on an article stay not_ai_tool. One of them is not Website."""
+    page = "https://magazine.example/blog/10-new-ai-tools"
+    html = (FIXTURE_DIR / "listicle_names_many_products.html").read_text(encoding="utf-8")
+    _patch_llm(
+        monkeypatch,
+        (
+            '{"Title":"10 new AI tools","Website":"https://alpha.example/",'
+            '"Source URL":"' + page + '","ai_tool_annotation":"ai_tool"}'
+        ),
+    )
+
+    tool = asyncio.run(extract_tool_info_with_llm(html, page))
+
+    assert tool.ai_tool_annotation == "not_ai_tool"
+    assert tool.website == page
+    assert "alpha.example" not in tool.website
+    assert "beta.example" not in tool.website
+    assert "gamma.example" not in tool.website
+
+
+def test_product_homepage_is_not_rewritten(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A product homepage is not an article, even when the page links elsewhere."""
+    page = "https://nova.example/"
+    html = (
+        "<main><h1>Nova</h1>"
+        '<a href="https://alpha.example/">Alpha</a>'
+        '<a href="https://beta.example/pricing">Beta</a>'
+        "</main>"
+    )
+    _patch_llm(
+        monkeypatch,
+        (
+            '{"Title":"Nova","Website":"' + page + '",'
+            '"Source URL":"' + page + '","ai_tool_annotation":"ai_tool"}'
+        ),
+    )
+
+    tool = asyncio.run(extract_tool_info_with_llm(html, page))
+
+    assert tool.website == page
+    assert tool.ai_tool_annotation == "ai_tool"

@@ -1,6 +1,6 @@
 Step 1: Carefully analyze the HTML and URL below.
 Step 2: Extract the following fields, using only information present in the HTML/URL.
-Step 3: Set ai_tool_annotation to 'ai_tool' only when this URL is the product's own homepage, docs, or launch page for one software product the publisher ships. Set 'not_ai_tool' for listicles, news roundups, weekly tool digests, and articles about someone else's tool. A news story that describes a real product is 'not_ai_tool'. If unsure, use 'not_ai_tool'.
+Step 3: Set ai_tool_annotation to 'ai_tool' only when this URL is the product's own homepage, docs, or launch page for one software product the publisher ships. Set 'not_ai_tool' for listicles, news roundups, weekly tool digests, and articles about someone else's tool. A news story that describes a real product is 'not_ai_tool'. When this URL is a blog post or news article and the page names one different official product URL, put that URL in Website and do not copy the article URL. When the page is only an article and names no different official product URL, use 'not_ai_tool'. When the page names several different product sites, use 'not_ai_tool' and do not choose one of them as Website. If unsure, use 'not_ai_tool'.
 
 Output format (always use this exact JSON structure, no markdown, no code block):
 {{
@@ -18,7 +18,7 @@ Output format (always use this exact JSON structure, no markdown, no code block)
 
 Field requirements:
 - Title: Product/tool name (not company, not generic).
-- Website: Official homepage (if present, else use the URL).
+- Website: Official product homepage, docs, or app. When this URL is a blog post or news article and the page names one different official product URL, use that URL. Do not copy the article URL when another official product URL is present. If the page names no other URL, use this URL and set ai_tool_annotation to not_ai_tool because the page is only an article. If the page names several product sites, set not_ai_tool and do not choose one of them as Website.
 - Core Functionality: 1-2 sentence, information-dense summary of what the tool does. No marketing fluff.
 - Target Audience: Who is this for? (if available)
 - Key Features: List of product-specific features or use cases. Avoid generic/irrelevant items (e.g., 'BPO Services', 'Consultation', 'Process Automation').

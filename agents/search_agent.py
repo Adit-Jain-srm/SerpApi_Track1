@@ -11,7 +11,12 @@ from urllib.parse import urlparse, urlunparse
 from serpapi_search_tools import SearchResultFormat, SerpApiSearchError, news_search, web_search
 
 from agents.config_agent import Settings
-from config.constants import AGGREGATOR_DOMAINS, BASE_QUERIES, github_url_is_blocked
+from config.constants import (
+    AGGREGATOR_DOMAINS,
+    BASE_QUERIES,
+    HOMEPAGE_QUERIES,
+    github_url_is_blocked,
+)
 from models.candidate import Candidate
 
 WEB_ENGINE = "google"
@@ -292,10 +297,11 @@ async def run_search(
         raise ValueError("days must be at least 1")
 
     cutoff = news_cutoff(days, now)
-    web_queries = list(BASE_QUERIES)
-    news_queries = [f"{query} after:{cutoff}" for query in web_queries]
+    # Homepage queries stay on web. News would turn them back into articles.
+    web_queries = [*BASE_QUERIES, *HOMEPAGE_QUERIES]
+    news_queries = [f"{query} after:{cutoff}" for query in BASE_QUERIES]
     logging.info(
-        f"Searching {len(web_queries)} launch queries over {days} days "
+        f"Searching {len(web_queries)} web and {len(news_queries)} news queries over {days} days "
         f"(web tbs=qdr:d{days}, news after:{cutoff})"
     )
 

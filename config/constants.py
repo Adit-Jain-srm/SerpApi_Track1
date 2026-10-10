@@ -93,12 +93,19 @@ BATCH_SIZE = 4
 LLM_CONCURRENCY_LIMIT = 2
 SEARCH_DAYS = 7
 
-# Four launch-intent queries. Web and news each run all four (eight searches).
+# Four launch-intent queries. Web and news each run all four.
 BASE_QUERIES = [
     "new AI tool launch",
     "new AI app launch",
     "AI tool now available",
     "open-source AI launch",
+]
+
+# Homepage-intent queries. Web only, inside the same date window.
+# 6 web searches + 4 news searches = 10. Not a crawl.
+HOMEPAGE_QUERIES = [
+    '"AI" launched ("pricing" OR "sign up" OR "get started")',
+    '"we launched" AI ("start free" OR signup OR pricing)',
 ]
 
 DEFAULT_HEADERS = {

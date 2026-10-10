@@ -14,7 +14,7 @@ from agents.search_agent import (
     compare_candidates,
     run_search,
 )
-from config.constants import BASE_QUERIES
+from config.constants import BASE_QUERIES, HOMEPAGE_QUERIES
 from main import main
 from models.candidate import Candidate
 
@@ -98,12 +98,17 @@ def test_planner_date_window(days: int, tbs: str, after_date: str) -> None:
     assert os.environ.get("SERPAPI_API_KEY") is None
     assert os.environ.get("SERPAPI_KEY") is None
     assert len(BASE_QUERIES) == 4
+    assert len(HOMEPAGE_QUERIES) == 2
     joined = " ".join(BASE_QUERIES).lower()
     assert "new ai tool" in joined
     assert "new ai app" in joined
     assert "now available" in joined
     assert "open-source" in joined
+    homepage = " ".join(HOMEPAGE_QUERIES).lower()
+    assert "pricing" in homepage
+    assert "sign up" in homepage
     assert all("after:" not in query and "site:" not in query for query in BASE_QUERIES)
+    assert all("after:" not in query and "site:" not in query for query in HOMEPAGE_QUERIES)
 
     client = RecordingClient(_empty)
     candidates = asyncio.run(run_search(_settings(search_days=days), client=client, now=NOW))
@@ -111,8 +116,13 @@ def test_planner_date_window(days: int, tbs: str, after_date: str) -> None:
     assert candidates == []
     web_calls = [call for call in client.calls if call.get("engine") == "google"]
     news_calls = [call for call in client.calls if call.get("engine") == "google_news"]
-    assert len(web_calls) == 4
+    assert len(web_calls) == 6
     assert len(news_calls) == 4
+    assert [call.get("q") for call in web_calls] == [*BASE_QUERIES, *HOMEPAGE_QUERIES]
+    assert all(
+        not any(str(call.get("q", "")).startswith(query) for query in HOMEPAGE_QUERIES)
+        for call in news_calls
+    )
     assert {call.get("tbs") for call in web_calls} == {tbs}
     assert all("after:" not in call["q"] for call in web_calls)
     assert all("tbs" not in call for call in news_calls)
@@ -145,7 +155,7 @@ def test_runner_compares_fixtures_without_a_key() -> None:
     assert by_url[BARE].published_at == ""
     assert by_url[DATED].published_at == "2026-10-08"
     assert by_url[DATED].snippet == ""
-    assert len(client.calls) == 8
+    assert len(client.calls) == 10
 
 
 def test_no_results_payload_is_empty() -> None:

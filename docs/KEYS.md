@@ -24,7 +24,7 @@ Copy `.env.example` to `.env` in the repo root and fill it in there. `.env` is g
 
 Create a key in the SerpApi dashboard: [serpapi.com/manage-api-key](https://serpapi.com/manage-api-key). Put it in `SERPAPI_API_KEY`.
 
-Each run issues eight searches: four launch-intent queries, once through web search and once through news search. That cap exists because the free plan draws from a monthly credit pool. Eight searches is a digest of recent launches. It is not a crawl. Raising the query count spends that pool on every run.
+Each run issues ten searches: four launch-intent queries, once through web search and once through news search, plus two homepage-intent queries on web only. That cap exists because the free plan draws from a monthly credit pool. Ten searches is a digest of recent launches. It is not a crawl. Raising the query count spends that pool on every run.
 
 A missing `SERPAPI_API_KEY` is a configuration error. The process exits before it searches. `--dry-run` needs this key and does not need the Azure variables.
 
