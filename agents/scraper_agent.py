@@ -176,8 +176,10 @@ async def extract_tool_info_with_llm(html: str, url: str) -> ToolInfo:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
-            max_tokens=800,
-            temperature=0.4,
+            # gpt-4o-class and newer Azure chat deployments reject max_tokens.
+            # Some of those deployments also accept only the default temperature.
+            max_completion_tokens=800,
+            temperature=1,
         )
 
         data = _parse_llm_json(response.choices[0].message.content)
