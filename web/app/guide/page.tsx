@@ -12,7 +12,7 @@ export default function GuidePage() {
   return (
     <main className="guide">
       <p className="guide-nav">
-        <a href="/">Digest film</a>
+        <a href="/">Weekly digest</a>
         <a href={GITHUB_HREF} rel="noreferrer">
           SerpApi Track 1 on GitHub
         </a>

@@ -2,78 +2,25 @@
 
 /**
  * Motion thesis, written before any tween.
- * Metaphor: a raw result stays censored until the pipeline resolves it into a named tool.
- * Hero material: a full-bleed mosaic of search cells.
- * Playhead: scroll is the pipeline. Rest is unresolved and alive. Forward scroll resolves. Scroll up censors again.
- * Ceremony: one control, "Read the guide", censors its label, throws a short burst, then a two-path wave, then opens the guide. Modifier-clicks and the middle button skip the ceremony and follow the real link.
- * Still: reduced motion shows the resolved digest card, final type, and scene opacity 1. No interval, cursor, burst, or marquee.
+ * Metaphor: the weekly is already on the desk. Scroll finishes a line on the card. It does not search an empty field.
+ * Hero material: the Teams sample card, held beside the claim.
+ * Playhead: scroll moves a red rule along the pipeline and resolves one slug on the card. Scroll up puts both back. The name, the sentence, and the image stay in the frame.
+ * Ceremony: "Read the guide" censors, throws a short burst, then a two-path wave, then opens the guide. Modifier-clicks and the middle button skip it.
+ * Still: reduced motion shows the card, the headline, the sentence, and the slug already reading "Posted to Teams".
  */
 
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type MouseEvent } from "react";
+import { useLayoutEffect, useRef, type CSSProperties, type MouseEvent } from "react";
 
-import type { DigestFile, ProofResponse } from "@/lib/types";
+import type { DigestFile } from "@/lib/types";
 
 const GUIDE_HREF = "/guide";
 const GITHUB_HREF = "https://github.com/Adit-Jain-srm/SerpApi_Track1";
 const CEREMONY = "Read the guide";
+const SLUG = "Posted to Teams";
 
 const GLYPHS = "█▓▒░•";
 const WAVE_POINTS = 10;
 const EASE = [0.22, 1, 0.36, 1] as const;
-
-const CELLS: { c: number; r: number; tool?: boolean }[] = [
-  { c: 1, r: 1 },
-  { c: 2, r: 1 },
-  { c: 5, r: 1, tool: true },
-  { c: 8, r: 1 },
-  { c: 11, r: 1 },
-  { c: 3, r: 2 },
-  { c: 6, r: 2 },
-  { c: 10, r: 2, tool: true },
-  { c: 12, r: 2 },
-  { c: 1, r: 3, tool: true },
-  { c: 4, r: 3 },
-  { c: 9, r: 3 },
-  { c: 2, r: 4 },
-  { c: 6, r: 4 },
-  { c: 8, r: 4, tool: true },
-  { c: 11, r: 4 },
-  { c: 4, r: 5, tool: true },
-  { c: 7, r: 5 },
-  { c: 12, r: 5 },
-  { c: 1, r: 6 },
-  { c: 3, r: 6 },
-  { c: 5, r: 6, tool: true },
-  { c: 9, r: 6 },
-  { c: 2, r: 7 },
-  { c: 6, r: 7 },
-  { c: 8, r: 7 },
-];
-
-const ACTS = [
-  {
-    n: "01",
-    t: "Ask the window, not the whole web.",
-    b: "The plan fixes a date range. Web search stays on Google and sends tbs. News search puts after: in the query. Four launch phrases, two engines.",
-  },
-  {
-    n: "02",
-    t: "The same launch is one row.",
-    b: "Aggregator domains drop. Matching URLs merge. When the web date and the news date disagree, the news date wins.",
-  },
-  {
-    n: "03",
-    t: "Name it, then send it.",
-    b: "The page is fetched and read into a tool record. The digest prints. Teams gets a post only when a webhook is configured.",
-  },
-] as const;
-
-const CARD_NOISE = Array.from({ length: 24 }, (_, i) => i);
-
-const AGGREGATORS = ["reddit.com", "techcrunch.com", "medium.com", "producthunt.com"];
-
-type Act = (typeof ACTS)[number];
-type SceneBox = { el: HTMLElement; pin: HTMLElement; top: number; h: number; off: boolean | null };
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
@@ -120,13 +67,6 @@ function buildWave(points: number[]) {
   return `${d} V 100 H 0 Z`;
 }
 
-function setCovered(el: HTMLElement, covered: boolean) {
-  el.style.visibility = covered ? "hidden" : "visible";
-  el.style.pointerEvents = covered ? "none" : "";
-  if (covered) el.setAttribute("inert", "");
-  else el.removeAttribute("inert");
-}
-
 /** Left to right, resolved characters become glyphs. Same interval for every censor. */
 function censorLabel(el: HTMLElement) {
   const target = el.dataset.label || el.textContent || "";
@@ -160,60 +100,23 @@ function restoreLabel(el: HTMLElement | null) {
 function spawnBurst(x: number, y: number) {
   const root = document.createElement("div");
   root.className = "burst";
-  for (let i = 0; i < 14; i += 1) {
+  for (let i = 0; i < 12; i += 1) {
     const bit = document.createElement("span");
     const angle = Math.random() * Math.PI * 2;
-    const dist = 34 + Math.random() * 66;
+    const dist = 28 + Math.random() * 56;
     const dx = Math.cos(angle) * dist;
-    const dy = Math.sin(angle) * dist + 18 + Math.random() * 36;
+    const dy = Math.sin(angle) * dist + 14 + Math.random() * 28;
     bit.style.left = `${x}px`;
     bit.style.top = `${y}px`;
-    bit.style.transitionDuration = `${0.55 + Math.random() * 0.35}s`;
+    bit.style.transitionDuration = `${0.5 + Math.random() * 0.2}s`;
     root.appendChild(bit);
     requestAnimationFrame(() => {
-      bit.style.transform = `translate3d(${dx}px, ${dy}px, 0) scale(0.35)`;
+      bit.style.transform = `translate3d(${dx}px, ${dy}px, 0) scale(0.4)`;
       bit.style.opacity = "0";
     });
   }
   document.body.appendChild(root);
-  window.setTimeout(() => root.remove(), 1000);
-}
-
-function hostOf(link: string) {
-  try {
-    return new URL(link).host;
-  } catch {
-    return link;
-  }
-}
-
-let proofInflight: Promise<ProofResponse> | null = null;
-
-function loadProof(): Promise<ProofResponse> {
-  if (!proofInflight) {
-    proofInflight = fetch("/api/proof")
-      .then((res) => {
-        if (!res.ok) throw new Error("proof");
-        return res.json() as Promise<unknown>;
-      })
-      .then((body) => {
-        if (!body || typeof body !== "object") throw new Error("proof");
-        const value = body as ProofResponse;
-        if ((value.source !== "live" && value.source !== "sample") || !Array.isArray(value.results)) {
-          throw new Error("proof");
-        }
-        return value;
-      })
-      .catch(
-        (): ProofResponse => ({
-          source: "sample",
-          query: "new AI tool now available",
-          tbs: "qdr:d7",
-          results: [],
-        }),
-      );
-  }
-  return proofInflight;
+  window.setTimeout(() => root.remove(), 900);
 }
 
 function CipherLine({ text, from, span }: { text: string; from: number; span: number }) {
@@ -234,107 +137,36 @@ function CipherLine({ text, from, span }: { text: string; from: number; span: nu
   );
 }
 
-function ActView({ act }: { act: Act }) {
-  return (
-    <>
-      <p className="step-index nums">{act.n}</p>
-      <div className="step-copy">
-        <h2 className="step-title">{act.t}</h2>
-        <p className="step-body">{act.b}</p>
-      </div>
-    </>
-  );
-}
-
-function useLiveProof() {
-  const [data, setData] = useState<ProofResponse | null>(null);
-  useEffect(() => {
-    let cancel = false;
-    loadProof().then((value) => {
-      if (!cancel) setData(value);
-    });
-    return () => {
-      cancel = true;
-    };
-  }, []);
-  return data;
-}
-
-function WebHit() {
-  const live = useLiveProof();
-  const hit = live?.source === "live" ? live.results[0] : undefined;
-  return (
-    <article className="hit hit-web">
-      <h3 className="hit-title">{hit?.title || "Sample launch page"}</h3>
-      <p className="hit-snippet">
-        {hit?.snippet || "Sample web snippet for the same window. Not a live result."}
-      </p>
-      <p className="hit-meta nums">
-        {hit ? `${hostOf(hit.link)} · fixed query` : "Sample hit. Not from today."}
-      </p>
-    </article>
-  );
-}
-
-function LiveCaption() {
-  const live = useLiveProof();
-  if (live?.source !== "live") return null;
-  const count = live.results.length;
-  const line =
-    count > 0
-      ? `Live proof · ${live.tbs} · ${count} results. The card stays the sample shape.`
-      : "Live proof returned no organic results. The card stays the sample shape.";
-  return <p className="live-line nums">{line}</p>;
-}
-
 export function Film({ digest }: { digest: DigestFile }) {
-  const tool = digest.tools[0];
+  const caption = digest.label || "Sample card. Not a discovery from today.";
   const spacerRef = useRef<HTMLDivElement>(null);
-  const chromeRef = useRef<HTMLElement>(null);
-  const stageRef = useRef<HTMLDivElement>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
-  const wrapRef = useRef<HTMLDivElement>(null);
-  const outroRef = useRef<HTMLElement>(null);
+  const frontRef = useRef<HTMLElement>(null);
   const labelRef = useRef<HTMLSpanElement>(null);
-  const cursorRef = useRef<HTMLDivElement>(null);
-  const pillRef = useRef<HTMLSpanElement>(null);
   const waveRef = useRef<SVGSVGElement>(null);
   const paleRef = useRef<SVGPathElement>(null);
   const deepRef = useRef<SVGPathElement>(null);
 
   useLayoutEffect(() => {
     const spacer = spacerRef.current;
-    const chrome = chromeRef.current;
-    const stage = stageRef.current;
-    const panel = panelRef.current;
-    const wrap = wrapRef.current;
-    const outro = outroRef.current;
-    const cursor = cursorRef.current;
+    const front = frontRef.current;
     const pale = paleRef.current;
     const deep = deepRef.current;
     const wave = waveRef.current;
-    if (!spacer || !chrome || !stage || !panel || !wrap || !outro || !cursor || !pale || !deep || !wave) {
-      return;
-    }
+    if (!spacer || !front || !pale || !deep || !wave) return;
 
     const reduceMq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const fineMq = window.matchMedia("(pointer: fine)");
     const coarse = window.matchMedia("(pointer: coarse)").matches;
     const paths = [pale, deep];
     let vh = window.innerHeight;
+    let travel = vh;
     let lastW = window.innerWidth;
-    let innerMax = 0;
     let raf = 0;
     let measureRaf = 0;
     let waveRaf = 0;
-    let heroCovered = false;
     let leaving = false;
     let intervals: number[] = [];
-    let scenes: SceneBox[] = [];
-    let cursorSeen = false;
 
     const reduced = () => reduceMq.matches;
-    const cursorOn = () => fineMq.matches && window.innerWidth >= 1024 && !reduced();
 
     const resetWave = () => {
       cancelAnimationFrame(waveRaf);
@@ -346,129 +178,26 @@ export function Film({ digest }: { digest: DigestFile }) {
       wave.setAttribute("inert", "");
     };
 
-    const restoreChrome = () => {
-      chrome.style.removeProperty("opacity");
-      chrome.style.removeProperty("visibility");
-      chrome.style.removeProperty("pointer-events");
-      chrome.removeAttribute("inert");
-      setCovered(stage, false);
-      heroCovered = false;
-    };
-
     const clearMotion = () => {
       cancelAnimationFrame(raf);
-      for (const el of [stage, panel, wrap, outro, chrome]) {
-        el.style.removeProperty("transform");
-        el.style.removeProperty("opacity");
-        el.style.removeProperty("visibility");
-        el.style.removeProperty("pointer-events");
-        el.removeAttribute("inert");
-      }
-      for (const scene of scenes) {
-        scene.pin.style.removeProperty("transform");
-        scene.pin.style.removeProperty("opacity");
-        scene.pin.style.removeProperty("visibility");
-        scene.pin.style.removeProperty("pointer-events");
-        scene.pin.removeAttribute("inert");
-        scene.el.style.removeProperty("--sp");
-      }
-      stage.style.removeProperty("--sp");
-      wrap.querySelectorAll<HTMLElement>(".digest-card").forEach((card) => {
-        card.removeAttribute("inert");
-      });
+      front.style.removeProperty("--sp");
+      front.dataset.rest = "true";
     };
 
     const update = () => {
       if (reduced()) return;
       const y = window.scrollY;
-      const panelY = Math.max(0, vh - y);
-      const innerY = -Math.max(0, y - vh);
-      panel.style.transform = `translate3d(0, ${panelY}px, 0)`;
-      wrap.style.transform = `translate3d(0, ${innerY}px, 0)`;
-
-      const covered = y >= vh;
-      if (covered !== heroCovered) {
-        heroCovered = covered;
-        setCovered(stage, covered);
-      }
-      const heroSp = clamp(y / Math.max(vh, 1), 0, 1);
-      stage.style.setProperty("--sp", heroSp.toFixed(4));
-      const rest = y < 2 ? "true" : "";
-      if ((stage.dataset.rest ?? "") !== rest) {
-        if (rest) stage.dataset.rest = "true";
-        else delete stage.dataset.rest;
-      }
-
-      if (y <= 0) {
-        restoreChrome();
-      } else {
-        const into = y - vh;
-        const fade =
-          into <= vh * 0.12 ? 0 : clamp((into - vh * 0.12) / (vh * 0.33), 0, 1);
-        chrome.style.opacity = String(1 - fade);
-        const chromeOff = fade > 0.98;
-        chrome.style.visibility = chromeOff ? "hidden" : "visible";
-        chrome.style.pointerEvents = chromeOff ? "none" : "";
-        if (chromeOff) chrome.setAttribute("inert", "");
-        else chrome.removeAttribute("inert");
-      }
-
-      for (const scene of scenes) {
-        const topVp = panelY + innerY + scene.top;
-        const pinRange = Math.max(0, scene.h - vh);
-        const pinOffset = clamp(-topVp, 0, pinRange);
-        scene.pin.style.transform = `translate3d(0, ${pinOffset}px, 0)`;
-        const sp = pinRange ? pinOffset / pinRange : 1;
-        scene.el.style.setProperty("--sp", sp.toFixed(4));
-        const card = scene.el.querySelector<HTMLElement>(".digest-card");
-        if (card) {
-          const open = sp > 0.6;
-          const locked = card.hasAttribute("inert");
-          if (open && locked) card.removeAttribute("inert");
-          else if (!open && !locked) card.setAttribute("inert", "");
-        }
-        const fadeIn = clamp((vh * 0.9 - topVp) / (vh * 0.45), 0, 1);
-        const exitP = clamp((-topVp - pinRange) / (vh * 0.4), 0, 1);
-        const opacity = Math.min(fadeIn, 1 - exitP);
-        scene.pin.style.opacity = opacity.toFixed(4);
-        const off = opacity <= 0.001;
-        if (off !== scene.off) {
-          scene.off = off;
-          setCovered(scene.pin, off);
-        }
-      }
-
-      const outroP = clamp((y - (vh + innerMax)) / Math.max(1, vh - 24), 0, 1);
-      outro.style.transform = `translate3d(0, ${(1 - outroP) * 100}%, 0)`;
-      if (outroP < 0.02) setCovered(outro, true);
-      else if (outroP > 0.55) setCovered(outro, false);
-      else {
-        outro.style.visibility = "visible";
-        outro.style.pointerEvents = "none";
-        outro.setAttribute("inert", "");
-      }
-      if (outroP > 0.55) {
-        panel.style.pointerEvents = "none";
-        panel.setAttribute("inert", "");
-      } else {
-        panel.style.pointerEvents = "";
-        panel.removeAttribute("inert");
-      }
+      const sp = clamp(y / Math.max(travel, 1), 0, 1);
+      front.style.setProperty("--sp", sp.toFixed(4));
+      if (y < 2) front.dataset.rest = "true";
+      else delete front.dataset.rest;
     };
 
     const measure = () => {
       if (reduced()) return;
       vh = window.innerHeight;
-      scenes = [];
-      const nodes = wrap.querySelectorAll<HTMLElement>("[data-scene]");
-      nodes.forEach((el) => {
-        if (el.offsetHeight === 0) return;
-        const pin = el.querySelector<HTMLElement>("[data-pin]");
-        if (!pin) return;
-        scenes.push({ el, pin, top: el.offsetTop, h: el.offsetHeight, off: null });
-      });
-      innerMax = Math.max(0, wrap.scrollHeight - vh);
-      spacer.style.height = `${wrap.scrollHeight + vh * 2 + 48}px`;
+      travel = vh;
+      spacer.style.height = `${vh + travel}px`;
       update();
     };
 
@@ -484,7 +213,6 @@ export function Film({ digest }: { digest: DigestFile }) {
 
     const onScroll = () => {
       if (window.scrollY === 0) {
-        restoreChrome();
         update();
         return;
       }
@@ -503,40 +231,17 @@ export function Film({ digest }: { digest: DigestFile }) {
       else measure();
     };
 
-    const onMove = (event: PointerEvent) => {
-      if (!cursorOn()) return;
-      if (!cursorSeen) {
-        cursorSeen = true;
-        cursor.dataset.live = "true";
-      }
-      cursor.style.transform = `translate3d(${event.clientX}px, ${event.clientY}px, 0)`;
-    };
-
-    const onOver = (event: Event) => {
-      if (!cursorOn() || leaving) return;
-      const target = event.target;
-      if (!(target instanceof Element)) return;
-      const control = target.closest("[data-control]");
-      const link = target.closest("a");
-      cursor.classList.toggle("tag", Boolean(control));
-      cursor.classList.toggle("link", Boolean(link) && !control);
-      if (control && pillRef.current && !pillRef.current.classList.contains("is-glyph")) {
-        pillRef.current.textContent = CEREMONY;
-      }
-    };
-
     const onLeave = (event: Event) => {
       if (leaving || reduced()) return;
       leaving = true;
       const detail = (event as CustomEvent<{ x: number; y: number }>).detail;
       if (labelRef.current) intervals.push(censorLabel(labelRef.current));
-      if (pillRef.current) intervals.push(censorLabel(pillRef.current));
       if (detail) spawnBurst(detail.x, detail.y);
       const delays = [0, 1].map(() =>
-        Array.from({ length: WAVE_POINTS }, () => Math.random() * 250),
+        Array.from({ length: WAVE_POINTS }, () => Math.random() * 220),
       );
       const points = [0, 1].map(() => Array.from({ length: WAVE_POINTS }, () => 100));
-      const offset = [0, 150];
+      const offset = [0, 140];
       const started = performance.now();
       let shown = false;
       let finished = false;
@@ -552,7 +257,7 @@ export function Film({ digest }: { digest: DigestFile }) {
         let done = elapsed > 350;
         for (let i = 0; i < 2; i += 1) {
           for (let j = 0; j < WAVE_POINTS; j += 1) {
-            const u = clamp((elapsed - 350 - offset[i] - delays[i][j]) / 750, 0, 1);
+            const u = clamp((elapsed - 350 - offset[i] - delays[i][j]) / 720, 0, 1);
             points[i][j] = 100 * (1 - easeOut(u));
             if (u < 1) done = false;
           }
@@ -574,7 +279,6 @@ export function Film({ digest }: { digest: DigestFile }) {
       for (const id of intervals) window.clearInterval(id);
       intervals = [];
       restoreLabel(labelRef.current);
-      restoreLabel(pillRef.current);
       document.querySelector(".burst")?.remove();
       resetWave();
       if (!reduced()) measure();
@@ -583,20 +287,13 @@ export function Film({ digest }: { digest: DigestFile }) {
     document.documentElement.dataset.motion = reduced() ? "reduce" : "full";
     resetWave();
     if (!reduced()) measure();
+    else clearMotion();
 
     window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", onResize);
-    window.addEventListener("pointermove", onMove, { passive: true });
-    window.addEventListener("pointerover", onOver);
     window.addEventListener("film-leave", onLeave);
     window.addEventListener("pageshow", onPageShow);
     reduceMq.addEventListener("change", onMode);
-    const observer = new ResizeObserver(() => {
-      if (reduced()) return;
-      if (coarse && window.innerWidth === lastW) return;
-      scheduleMeasure();
-    });
-    observer.observe(wrap);
     document.fonts?.ready.then(() => {
       if (!reduced()) scheduleMeasure();
     }).catch(() => undefined);
@@ -606,11 +303,8 @@ export function Film({ digest }: { digest: DigestFile }) {
       cancelAnimationFrame(measureRaf);
       cancelAnimationFrame(waveRaf);
       for (const id of intervals) window.clearInterval(id);
-      observer.disconnect();
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", onResize);
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerover", onOver);
       window.removeEventListener("film-leave", onLeave);
       window.removeEventListener("pageshow", onPageShow);
       reduceMq.removeEventListener("change", onMode);
@@ -628,215 +322,63 @@ export function Film({ digest }: { digest: DigestFile }) {
     );
   };
 
-  if (!tool) return null;
-
   return (
     <div className="film">
       <div className="spacer" ref={spacerRef} />
-      <header className="chrome" ref={chromeRef}>
-        <span>Track 01</span>
-        <span className="chrome-rule" aria-hidden="true" />
-        <span>Weekly</span>
-      </header>
-
-      <div className="stage" data-rest="true" ref={stageRef}>
-        <div className="mosaic" aria-hidden="true">
-          {CELLS.map((cell) => (
-            <div
-              key={`${cell.c}-${cell.r}`}
-              className={cell.tool ? "cell is-tool" : "cell"}
-              data-wide={cell.c > 6 ? "true" : undefined}
-              style={
-                {
-                  gridColumn: cell.c,
-                  gridRow: cell.r,
-                  "--c": cell.c,
-                  "--r": cell.r,
-                } as CSSProperties
-              }
+      <section className="front" data-rest="true" ref={frontRef} aria-label="Weekly digest">
+        <header className="mast">
+          <p className="mast-name">AI Tool Discovery Agent</p>
+          <p className="mast-edition">Weekly digest</p>
+        </header>
+        <div className="rules" aria-hidden="true">
+          <span className="rule-ink" />
+          <span className="rule-red" />
+        </div>
+        <div className="spread">
+          <h1 className="claim">
+            It searches SerpApi for newly launched AI tools and posts a card to Teams, Slack, and the console.
+          </h1>
+          <figure className="plate">
+            <div className="plate-frame">
+              <img
+                src="/teams_output_example.png"
+                width={1024}
+                height={506}
+                alt="Sample Microsoft Teams card for a Quibim prostate-cancer tool, with website, audience, overview, features, pricing, and source. Not a discovery from today."
+                fetchPriority="high"
+              />
+              <p className="slug" aria-hidden="true">
+                <CipherLine text={SLUG} from={0.06} span={0.82} />
+              </p>
+            </div>
+            <figcaption className="plate-cap">{caption}</figcaption>
+          </figure>
+          <div className="actions">
+            <a
+              className="control"
+              href={GUIDE_HREF}
+              aria-label={CEREMONY}
+              onClick={onControlClick}
             >
-              <span className="cell-drift">
-                {cell.tool ? <span className="wash" /> : null}
-                <span className="noise">{glyphAt(cell.c + cell.r)}</span>
+              <span className="control-label" data-label={CEREMONY} ref={labelRef}>
+                {CEREMONY}
               </span>
-            </div>
-          ))}
-        </div>
-        <div className="hero-copy">
-          <p className="wordmark" aria-hidden="true">
-            <CipherLine text="Digest" from={0.04} span={0.7} />
-          </p>
-          <a
-            className="control"
-            data-control=""
-            href={GUIDE_HREF}
-            aria-label={CEREMONY}
-            onClick={onControlClick}
-          >
-            <span className="control-label" data-label={CEREMONY} ref={labelRef}>
-              {CEREMONY}
-            </span>
-          </a>
-        </div>
-      </div>
-
-      <div className="panel" ref={panelRef}>
-        <div className="wrap" ref={wrapRef}>
-          <section className="scene proof" data-scene>
-            <div className="pin" data-pin>
-              <div className="proof-layout">
-                <div className="stage-cell">
-                  <ul className="chips">
-                    {AGGREGATORS.map((name) => (
-                      <li className="chip" key={name}>
-                        {name}
-                      </li>
-                    ))}
-                  </ul>
-                  <WebHit />
-                  <article className="hit hit-news">
-                    <h3 className="hit-title">Sample news page</h3>
-                    <p className="hit-snippet">
-                      Sample news snippet. Same window, different date. This one stays.
-                    </p>
-                    <p className="hit-meta nums">Sample hit. Not from today.</p>
-                  </article>
-                  <article className="digest-card">
-                    <div className="card-censor" aria-hidden="true">
-                      {CARD_NOISE.map((i) => (
-                        <span key={i} className={i % 7 === 3 ? "is-tool" : undefined}>
-                          {glyphAt(i + 2)}
-                        </span>
-                      ))}
-                    </div>
-                    <h2 className="card-title">
-                      <CipherLine text={`AI Tool 2: ${tool.title}`} from={0.4} span={0.22} />
-                    </h2>
-                    <div className="card-rule" aria-hidden="true" />
-                    <dl className="digest-fields">
-                      <div>
-                        <dt>Website</dt>
-                        <dd>
-                          <a href={tool.website} target="_blank" rel="noreferrer">
-                            {tool.website}
-                            <span className="sr-only"> (opens in a new tab)</span>
-                          </a>
-                        </dd>
-                      </div>
-                      <div>
-                        <dt>Target audience</dt>
-                        <dd>{tool.target_audience}</dd>
-                      </div>
-                      <div>
-                        <dt>Overview</dt>
-                        <dd>{tool.summary}</dd>
-                      </div>
-                      <div>
-                        <dt>Key features</dt>
-                        <dd>
-                          {tool.features.length > 0 ? (
-                            <ul>
-                              {tool.features.map((feature) => (
-                                <li key={feature}>{feature}</li>
-                              ))}
-                            </ul>
-                          ) : (
-                            "None listed"
-                          )}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt>Pricing</dt>
-                        <dd>{tool.pricing ?? "No pricing information available."}</dd>
-                      </div>
-                      <div>
-                        <dt>Source</dt>
-                        <dd>
-                          <a href={tool.source} target="_blank" rel="noreferrer">
-                            {tool.source}
-                            <span className="sr-only"> (opens in a new tab)</span>
-                          </a>
-                        </dd>
-                      </div>
-                    </dl>
-                    <p className="sample-flag">{digest.label}</p>
-                    <div className="card-live">
-                      <LiveCaption />
-                    </div>
-                  </article>
-                </div>
-                <aside className="caption">
-                  <p className="caption-lead">
-                    Aggregators fall away. The two hits overlap. The name decrypts only once it is a tool.
-                  </p>
-                  <LiveCaption />
-                  <figure className="source-still">
-                    <img
-                      src="/teams_output_example.png"
-                      width={1024}
-                      height={506}
-                      alt="Sample Teams digest for Quibim, with title, website, audience, overview, features, pricing, and source."
-                      loading="lazy"
-                    />
-                    <figcaption>The message this card copies. A sample, not a live post.</figcaption>
-                  </figure>
-                </aside>
-              </div>
-            </div>
-          </section>
-
-          <section className="scene statement" data-scene>
-            <div className="pin" data-pin>
-              <p className="verb">Search noise becomes a weekly digest.</p>
-            </div>
-          </section>
-
-          {ACTS.map((act) => (
-            <section className="scene step-scene" data-scene key={act.n}>
-              <div className="pin step-pin" data-pin>
-                <ActView act={act} />
-              </div>
-            </section>
-          ))}
-
-          <section className="scene steps-phone" data-scene>
-            <div className="pin" data-pin>
-              {ACTS.map((act, index) => (
-                <div className={`act act-${index + 1}`} key={act.n}>
-                  <ActView act={act} />
-                </div>
-              ))}
-            </div>
-          </section>
-        </div>
-      </div>
-
-      <footer className="outro" ref={outroRef}>
-        <div className="marquee" aria-hidden="true">
-          <div className="marquee-track">
-            <span>{"█▓▒░•  ".repeat(18)}</span>
-            <span>{"█▓▒░•  ".repeat(18)}</span>
+            </a>
+            <a className="text-link" href={GITHUB_HREF} rel="noreferrer">
+              Source on GitHub
+            </a>
           </div>
         </div>
-        <p className="outro-mark">Digest</p>
-        <nav className="outro-nav" aria-label="Leave the film">
-          <a className="outro-link" href={GUIDE_HREF}>
-            Read the usage guide
-          </a>
-          <a className="outro-link" href={GITHUB_HREF} rel="noreferrer">
-            SerpApi Track 1 on GitHub
-          </a>
-        </nav>
-        <p className="outro-quiet">Search noise, resolved once a week.</p>
-      </footer>
-
-      <div className="cursor" ref={cursorRef} aria-hidden="true">
-        <span className="cursor-mark" />
-        <span className="cursor-pill" data-label={CEREMONY} ref={pillRef}>
-          {CEREMONY}
-        </span>
-      </div>
-
+        <div className="proof">
+          <p className="sr-only">SerpApi web and news, then extract, then Teams or Slack.</p>
+          <p className="proof-row" aria-hidden="true">
+            <span>SerpApi web + news</span>
+            <span>then extract</span>
+            <span>then Teams or Slack</span>
+          </p>
+          <div className="proof-mark" aria-hidden="true" />
+        </div>
+      </section>
       <svg
         className="wave"
         ref={waveRef}

@@ -1,31 +1,32 @@
 import type { Metadata } from "next";
-import { Geist_Mono, Inter_Tight } from "next/font/google";
+import { Fraunces, Newsreader } from "next/font/google";
 
 import "./globals.css";
 
-const display = Inter_Tight({
+const display = Fraunces({
   subsets: ["latin"],
-  weight: ["500", "800"],
-  variable: "--font-display",
   display: "swap",
+  variable: "--font-display",
+  axes: ["opsz", "SOFT", "WONK"],
 });
 
-const mono = Geist_Mono({
+const text = Newsreader({
   subsets: ["latin"],
-  weight: ["400"],
-  variable: "--font-mono",
+  weight: ["400", "500", "600"],
+  style: ["normal", "italic"],
   display: "swap",
+  variable: "--font-text",
 });
 
 export const metadata: Metadata = {
-  title: "Digest: AI Tool Discovery",
+  title: "AI Tool Discovery Agent",
   description:
-    "Search noise becomes a weekly digest. A scroll film for the SerpApi Track 1 agent.",
+    "It searches SerpApi for newly launched AI tools and posts a card to the console, Microsoft Teams, and Slack.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${display.variable} ${mono.variable}`}>
+    <html lang="en" className={`${display.variable} ${text.variable}`}>
       <body>{children}</body>
     </html>
   );
