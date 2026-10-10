@@ -1,0 +1,35 @@
+{
+  "label": "Sample of the digest shape. Not a discovery from today.",
+  "tools": [
+    {
+      "title": "Quibim AI Tool for Prostate Cancer Detection",
+      "website": "https://quibim.com/",
+      "summary": "An AI-powered tool designed for the detection of prostate cancer, aiding in medical diagnostics and improving healthcare outcomes.",
+      "features": [
+        "Prostate cancer detection using AI",
+        "Integration into NHS hospitals",
+        "Enhanced diagnostic accuracy"
+      ],
+      "pricing": "No pricing information available.",
+      "source": "https://quibim.com/newsroom/news-and-press-releases/quibims-ai-tool-for-prostate-cancer-detection-selected-for-nhs-rollout-across-seven-uk-hospitals/",
+      "target_audience": "Healthcare professionals and medical institutions.",
+      "main_text": "An AI-powered tool designed for the detection of prostate cancer, aiding in medical diagnostics and improving healthcare outcomes.",
+      "ai_tool_annotation": "ai_tool",
+      "tags": ["sample"],
+      "publish_date": null
+    },
+    {
+      "title": "Keel",
+      "website": "https://example.com/keel",
+      "summary": "A second sample row so the file shows a list, not a single hardcoded card.",
+      "features": ["Sample feature only"],
+      "pricing": "No pricing information available.",
+      "source": "https://example.com/keel",
+      "target_audience": "Sample audience",
+      "main_text": "",
+      "ai_tool_annotation": "ai_tool",
+      "tags": ["sample"],
+      "publish_date": "2024-03-18"
+    }
+  ]
+}
