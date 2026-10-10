@@ -4,7 +4,7 @@ A weekly digest of newly launched AI tools for a team that cannot watch the open
 
 **Adit Jain**
 
-The project existed before this hackathon. An earlier version searched with Serper and a raw SerpApi client. This repository is the Track 01 submission. Search uses SerpApi only, through [`serpapi-search-tools`](https://serpapi.github.io/serpapi-search-tools-python/). Serper is not part of this pipeline. The submitted SerpApi web-and-news path, CLI, tests, Slack output, and public site are part of this submission.
+This project was built for the SerpApi India Hackathon 2026. This repository is the Track 01 submission. Search uses [`serpapi-search-tools`](https://serpapi.github.io/serpapi-search-tools-python/): Google web with `tbs`, Google News with `after:`, then compare, HTTPS fetch, and Azure extraction. The console prints the digest. Teams and Slack are optional. The CLI, tests, Slack output, and public site are part of this submission.
 
 Clone URL: `https://github.com/Adit-Jain-srm/SerpApi_Track1`
 
