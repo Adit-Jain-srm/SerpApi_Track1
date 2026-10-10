@@ -127,11 +127,14 @@ def main(argv: list[str] | None = None, client: SearchClient | None = None) -> i
     if settings.skip_teams:
         logging.info("Skipping Teams notification.")
     else:
-        webhook = os.environ.get("TEAMS_WEBHOOK_URL")
+        webhook = (os.environ.get("TEAMS_WEBHOOK_URL") or "").strip()
         if webhook:
             for index, tool in enumerate(tools, 1):
                 if tool.ai_tool_annotation == "ai_tool":
-                    send_tool_to_teams(tool, index, webhook)
+                    try:
+                        send_tool_to_teams(tool, index, webhook)
+                    except Exception:
+                        logging.error("Teams notification failed for tool %s.", index)
     if args.skip_slack:
         logging.info("Skipping Slack notification.")
     else:

@@ -33,11 +33,32 @@ class SearchFailed(Exception):
         super().__init__(f"Both web and news search failed: {detail}")
 
 
+def _hostname(url: str) -> str:
+    """Return the lowercased host, without a port, userinfo, or trailing dot."""
+    return (urlparse(url).hostname or "").lower().rstrip(".")
+
+
 def normalize_url(url: str) -> str:
-    """Normalize URL by removing query parameters and fragments for deduplication."""
+    """Normalize URL by removing query parameters and fragments for deduplication.
+
+    The host is lowercased and userinfo is dropped so a password in the URL is
+    not kept on the candidate. Default ports 80 and 443 are dropped so the same
+    page merges across those spellings.
+    """
     try:
-        parsed = urlparse(url)
-        return urlunparse((parsed.scheme, parsed.netloc, parsed.path, "", "", ""))
+        parsed = urlparse(url.strip())
+        scheme = (parsed.scheme or "").lower()
+        host = _hostname(url)
+        if not scheme or not host:
+            return url
+        netloc = host
+        try:
+            port = parsed.port
+        except ValueError:
+            port = None
+        if port and not ((scheme == "https" and port == 443) or (scheme == "http" and port == 80)):
+            netloc = f"{host}:{port}"
+        return urlunparse((scheme, netloc, parsed.path or "", "", "", ""))
     except Exception as e:
         logging.warning(f"Failed to normalize URL {url}: {e}")
         return url
@@ -46,17 +67,27 @@ def normalize_url(url: str) -> str:
 def is_aggregator(url: str) -> bool:
     """Check if a URL belongs to an aggregator, news, or social media domain.
 
-    A leading-dot entry such as '.edu' matches with domain.endswith and does
-    not require the host to equal 'edu'. github.com repository roots are kept;
-    other github.com paths are blocked by github_url_is_blocked.
+    The host is the URL hostname, so a port or userinfo cannot bypass the list.
+    A single-label suffix such as '.edu' matches mit.edu and does not match the
+    bare host edu. A multi-label suffix such as '.gov.uk' also matches the apex
+    host gov.uk. github.com repository roots are kept; other github.com paths
+    are blocked by github_url_is_blocked.
     """
     try:
         if github_url_is_blocked(url):
             return True
-        domain = urlparse(url).netloc.lower()
+        domain = _hostname(url)
+        if not domain:
+            return True
         for agg in AGGREGATOR_DOMAINS:
             if agg.startswith("."):
-                if domain.endswith(agg):
+                suffix = agg[1:]
+                if not suffix:
+                    continue
+                if "." in suffix:
+                    if domain == suffix or domain.endswith("." + suffix):
+                        return True
+                elif domain.endswith("." + suffix):
                     return True
             elif domain == agg or domain.endswith("." + agg):
                 return True

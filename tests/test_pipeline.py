@@ -1,5 +1,6 @@
 """Recency, dedupe, dry-run, and the Teams skip flag."""
 import io
+import logging
 import sys
 from datetime import datetime, timedelta, timezone
 
@@ -45,6 +46,12 @@ def test_dedupe_by_title_and_website() -> None:
     other = ToolInfo(title="Other", website="https://widget.example", summary="third")
 
     assert _deduplicate([first, duplicate, other]) == [first, other]
+
+
+def test_dedupe_tolerates_null_title_and_website() -> None:
+    blank = ToolInfo(title=None, website=None)  # type: ignore[arg-type]
+    named = ToolInfo(title="Widget", website="https://widget.example")
+    assert _deduplicate([blank, blank, named]) == [blank, named]
 
 
 def test_dry_run_does_not_fetch_or_call_azure(
@@ -207,3 +214,40 @@ def test_skip_teams_still_prints_summary(
 
     assert main([]) == 0
     assert len(sent) == 1
+
+
+def test_teams_failure_does_not_block_slack(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A Teams error is logged without the webhook and Slack still posts."""
+    secret = "hook-secret-value"
+    slack_calls: list = []
+
+    async def fake_pipeline(_settings, client: SearchClient | None = None) -> list[ToolInfo]:
+        return [
+            ToolInfo(
+                title="Nova",
+                website="https://nova.example",
+                source="https://blog.example/nova",
+                summary="A launch",
+                ai_tool_annotation="ai_tool",
+            )
+        ]
+
+    def boom(*_args, **_kwargs):
+        raise RuntimeError(f"https://example.invalid/webhook/{secret}")
+
+    monkeypatch.setenv("SERPAPI_API_KEY", "test")
+    monkeypatch.setenv("AZURE_OPENAI_ENDPOINT", "https://example.openai.azure.com")
+    monkeypatch.setenv("AZURE_OPENAI_KEY", "test")
+    monkeypatch.setenv("TEAMS_WEBHOOK_URL", f"https://example.invalid/webhook/{secret}")
+    monkeypatch.setenv("SLACK_BOT_TOKEN", "test-token")
+    monkeypatch.setenv("SLACK_CHANNEL_ID", "C_TEST")
+    monkeypatch.setattr("main.run_pipeline", fake_pipeline)
+    monkeypatch.setattr("main.send_tool_to_teams", boom)
+    monkeypatch.setattr("main.send_tool_to_slack", lambda *args, **kwargs: slack_calls.append(args))
+
+    with caplog.at_level(logging.ERROR):
+        assert main([]) == 0
+    assert len(slack_calls) == 1
+    assert secret not in caplog.text

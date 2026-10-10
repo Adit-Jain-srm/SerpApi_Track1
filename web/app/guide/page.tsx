@@ -70,10 +70,10 @@ cp .env.example .env`}</code>
         <li>
           <code>AZURE_OPENAI_KEY</code>
         </li>
-        <li>
-          <code>AZURE_OPENAI_DEPLOYMENT</code>
-        </li>
       </ul>
+      <p>
+        <code>AZURE_OPENAI_DEPLOYMENT</code> selects the deployment. When it is empty, extraction uses <code>gpt-4o</code>.
+      </p>
       <p>Optional:</p>
       <ul>
         <li>

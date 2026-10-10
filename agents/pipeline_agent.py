@@ -117,7 +117,9 @@ def _deduplicate(tools: list[ToolInfo]) -> list[ToolInfo]:
     seen: set[tuple[str, str]] = set()
     deduped: list[ToolInfo] = []
     for t in tools:
-        key = (t.website.lower(), t.title.lower())
+        website = t.website if isinstance(t.website, str) else ""
+        title = t.title if isinstance(t.title, str) else ""
+        key = (website.lower(), title.lower())
         if key not in seen:
             seen.add(key)
             deduped.append(t)

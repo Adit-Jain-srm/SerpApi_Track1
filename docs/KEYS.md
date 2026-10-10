@@ -9,7 +9,7 @@ Copy `.env.example` to `.env` in the repo root and fill it in there. `.env` is g
 | `SERPAPI_API_KEY` | Yes | Local pipeline, and the one Vercel variable |
 | `AZURE_OPENAI_ENDPOINT` | Yes | Page extraction |
 | `AZURE_OPENAI_KEY` | Yes | Page extraction |
-| `AZURE_OPENAI_DEPLOYMENT` | Yes | Page extraction |
+| `AZURE_OPENAI_DEPLOYMENT` | No | Page extraction. Empty defaults to `gpt-4o`. |
 | `TEAMS_WEBHOOK_URL` | No | Teams delivery |
 | `SLACK_BOT_TOKEN` | No | Slack digest posts |
 | `SLACK_CHANNEL_ID` | No | Slack channel that receives the digest |

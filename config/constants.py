@@ -76,7 +76,7 @@ def github_url_is_blocked(url: str) -> bool:
     gist.github.com and *.github.io, return False so the domain list decides.
     """
     parsed = urlparse(url)
-    host = (parsed.hostname or "").lower()
+    host = (parsed.hostname or "").lower().rstrip(".")
     if host.startswith("www."):
         host = host[4:]
     if host != GITHUB_HOST:

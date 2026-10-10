@@ -21,10 +21,27 @@ def test_edu_suffix_matches_schools_not_the_bare_label() -> None:
     assert is_aggregator("https://www.stanford.edu/")
     assert is_aggregator("https://www.cam.ac.uk/")
     assert is_aggregator("https://www.iitb.ac.in/")
-    # The suffix branch is endswith, so the host must not have to equal "edu".
+    # A single-label suffix matches a dotted host, not the bare label "edu".
     assert is_aggregator("http://edu/") is False
     assert is_aggregator("https://education.com/") is False
-    assert is_aggregator("https://ac.uk/") is False
+
+
+def test_suffix_apex_and_port_cannot_bypass_the_list() -> None:
+    """A port, userinfo, or the bare apex of a multi-label suffix still matches."""
+    assert is_aggregator("https://gov.uk/")
+    assert is_aggregator("https://gov.uk/start")
+    assert is_aggregator("https://GOV.UK/")
+    assert is_aggregator("https://www.gov.uk./")
+    assert is_aggregator("https://gov.uk:443/")
+    assert is_aggregator("https://gov.in/")
+    assert is_aggregator("https://ac.uk/")
+    assert is_aggregator("https://mit.edu:443/research")
+    assert is_aggregator("https://user:secret@mit.edu/x")
+    assert is_aggregator("https://www.youtube.com:443/watch?v=1")
+    assert is_aggregator("https://notgov.uk/") is False
+    assert is_aggregator("https://education.com/") is False
+    assert is_aggregator("http://edu/") is False
+    assert is_aggregator("http://gov/") is False
 
 
 def test_gov_suffix_matches_us_and_country_governments() -> None:
@@ -87,6 +104,8 @@ def test_github_repository_root_is_kept_and_other_paths_are_blocked() -> None:
     assert is_aggregator("https://github.com/openai/whisper/actions") is True
     assert is_aggregator("https://gist.github.com/openai/abc") is True
     assert is_aggregator("https://openai.github.io/whisper/") is True
+    assert is_aggregator("https://github.com./topics") is True
+    assert is_aggregator("https://github.com./openai/whisper") is False
 
     kept = compare_candidates(
         [

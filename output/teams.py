@@ -11,10 +11,30 @@ _GENERIC_FEATURES = frozenset({
 })
 
 
+def _feature_lines(features: object) -> list[str]:
+    """Keep unique feature strings. Nulls and non-strings are skipped."""
+    if isinstance(features, str):
+        raw: list[object] = [features]
+    elif isinstance(features, list):
+        raw = list(features)
+    else:
+        raw = []
+    kept: list[str] = []
+    seen: set[str] = set()
+    for feature in raw:
+        if not isinstance(feature, str):
+            continue
+        text = feature.strip()
+        if not text or text in seen or text in _GENERIC_FEATURES or len(text) <= 5:
+            continue
+        seen.add(text)
+        kept.append(text)
+    return kept
+
+
 def format_tool_for_teams(tool: ToolInfo, idx: int) -> str:
     """Format a ToolInfo as a Markdown message suitable for Microsoft Teams."""
-    features = list(dict.fromkeys(tool.features or []))
-    features = [f for f in features if f not in _GENERIC_FEATURES and len(f) > 5]
+    features = _feature_lines(tool.features)
     features_str = "\n".join(f"- {f}" for f in features) if features else "N/A"
 
     pricing = tool.pricing
@@ -30,9 +50,8 @@ def format_tool_for_teams(tool: ToolInfo, idx: int) -> str:
             overview = " ".join(overview.split()[:80]) + "..."
     overview = overview or "N/A"
 
-    target = tool.target_audience if tool.target_audience and len(tool.target_audience) >= 3 else "N/A"
-
-    tags_str = ", ".join(tool.tags) if tool.tags else "N/A"
+    audience = tool.target_audience if isinstance(tool.target_audience, str) else ""
+    target = audience if len(audience) >= 3 else "N/A"
 
     website_line = f"**\U0001f310 Website:** [{tool.website}]({tool.website})\n\n" if tool.website != tool.source else ""
 
@@ -48,17 +67,26 @@ def format_tool_for_teams(tool: ToolInfo, idx: int) -> str:
 
 
 def send_tool_to_teams(tool: ToolInfo, idx: int, webhook_url: str) -> None:
-    """Post a formatted tool message to Microsoft Teams via webhook."""
-    if not webhook_url:
+    """Post a formatted tool message to Microsoft Teams via webhook.
+
+    The webhook URL is the secret. Failures log a status or exception type only.
+    """
+    webhook = (webhook_url or "").strip()
+    if not webhook:
         logging.warning("TEAMS_WEBHOOK_URL not set. Skipping Teams notification.")
         return
 
-    payload = {"text": format_tool_for_teams(tool, idx)}
     try:
-        response = requests.post(webhook_url, json=payload, timeout=15)
-        if response.status_code == 200:
-            logging.info(f"Tool {idx} sent to Microsoft Teams successfully.")
-        else:
-            logging.error(f"Failed to send tool {idx} to Teams: {response.status_code} {response.text}")
-    except requests.RequestException as e:
-        logging.error(f"Teams webhook request failed for tool {idx}: {e}")
+        payload = {"text": format_tool_for_teams(tool, idx)}
+        response = requests.post(webhook, json=payload, timeout=15)
+    except requests.RequestException as exc:
+        logging.error("Teams webhook request failed for tool %s: %s", idx, type(exc).__name__)
+        return
+    except Exception:
+        logging.error("Teams notification failed for tool %s.", idx)
+        return
+
+    if response.status_code == 200:
+        logging.info("Tool %s sent to Microsoft Teams successfully.", idx)
+    else:
+        logging.error("Failed to send tool %s to Teams: HTTP %s", idx, response.status_code)

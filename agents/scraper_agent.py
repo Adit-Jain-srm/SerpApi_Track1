@@ -10,7 +10,7 @@ import json
 import logging
 import re
 from typing import Optional
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 import aiohttp
 from openai import AsyncAzureOpenAI
@@ -59,14 +59,32 @@ def _get_prompts() -> tuple[str, str]:
     return _system_prompt, _user_prompt_template
 
 
+_REDIRECT_STATUSES = frozenset({301, 302, 303, 307, 308})
+_MAX_REDIRECTS = 5
+
+
+def _is_https(url: str) -> bool:
+    return urlparse(url).scheme.lower() == "https"
+
+
 async def fetch_with_retries(
     url: str, session: aiohttp.ClientSession, retries: int = 3, timeout: int = 30
 ) -> str:
     """Fetch HTML from a URL with retries and exponential backoff.
-    Skips blacklisted domains and non-retryable status codes.
+
+    Only https URLs are requested, and redirects that leave https are refused.
+    Certificate verification stays on (`ssl=True`). Skips blacklisted domains
+    and non-retryable status codes.
     """
     parsed = urlparse(url)
-    domain = parsed.netloc
+    if not _is_https(url):
+        _html_fetch_cache[url] = ""
+        raise ScrapingError(
+            f"Refusing non-TLS fetch for {url}",
+            context={"url": url, "step": "fetch_with_retries", "reason": "tls"},
+        )
+
+    domain = (parsed.hostname or "").lower().rstrip(".") or parsed.netloc.lower()
 
     if blacklist.is_blacklisted(domain):
         logging.warning(f"Domain {domain} is blacklisted. Skipping fetch for {url}.")
@@ -82,37 +100,62 @@ async def fetch_with_retries(
                 _html_fetch_cache[url] = ""
                 return ""
 
-            async with session.get(
-                url,
-                timeout=aiohttp.ClientTimeout(total=timeout),
-                ssl=True,
-                headers=DEFAULT_HEADERS,
-            ) as resp:
-                if resp.status == 200:
-                    html = await resp.text(encoding=resp.charset or "utf-8", errors="replace")
-                    _html_fetch_cache[url] = html or ""
-                    return _html_fetch_cache[url]
+            current = url
+            status = 0
+            html = ""
+            for _hop in range(_MAX_REDIRECTS + 1):
+                async with session.get(
+                    current,
+                    timeout=aiohttp.ClientTimeout(total=timeout),
+                    ssl=True,
+                    headers=DEFAULT_HEADERS,
+                    allow_redirects=False,
+                ) as resp:
+                    if resp.status in _REDIRECT_STATUSES:
+                        nxt = urljoin(current, resp.headers.get("Location") or "")
+                        if not _is_https(nxt):
+                            _html_fetch_cache[url] = ""
+                            raise ScrapingError(
+                                f"Refusing non-TLS redirect for {url}",
+                                context={"url": url, "step": "fetch_with_retries", "reason": "tls"},
+                            )
+                        current = nxt
+                        continue
+                    status = resp.status
+                    if resp.status == 200:
+                        html = await resp.text(encoding=resp.charset or "utf-8", errors="replace")
+                    break
+            else:
+                _html_fetch_cache[url] = ""
+                raise ScrapingError(
+                    f"Too many redirects for {url}",
+                    context={"url": url, "step": "fetch_with_retries", "reason": "redirects"},
+                )
 
-                if resp.status in NON_RETRYABLE_STATUS_CODES:
-                    _html_fetch_cache[url] = ""
-                    blacklist.record_failure(domain)
-                    raise ScrapingError(
-                        f"HTTP {resp.status} for {url}",
-                        context={"url": url, "step": "fetch_with_retries", "status": resp.status},
-                    )
+            if status == 200:
+                _html_fetch_cache[url] = html or ""
+                return _html_fetch_cache[url]
 
-                if attempt < retries - 1:
-                    logging.warning(f"HTTP {resp.status} for {url}, retrying after {delay}s...")
-                    await asyncio.sleep(delay)
-                    delay *= 2
-                    continue
-
+            if status in NON_RETRYABLE_STATUS_CODES:
                 _html_fetch_cache[url] = ""
                 blacklist.record_failure(domain)
                 raise ScrapingError(
-                    f"HTTP {resp.status} for {url}",
-                    context={"url": url, "step": "fetch_with_retries", "status": resp.status},
+                    f"HTTP {status} for {url}",
+                    context={"url": url, "step": "fetch_with_retries", "status": status},
                 )
+
+            if attempt < retries - 1:
+                logging.warning(f"HTTP {status} for {url}, retrying after {delay}s...")
+                await asyncio.sleep(delay)
+                delay *= 2
+                continue
+
+            _html_fetch_cache[url] = ""
+            blacklist.record_failure(domain)
+            raise ScrapingError(
+                f"HTTP {status} for {url}",
+                context={"url": url, "step": "fetch_with_retries", "status": status},
+            )
 
         except (aiohttp.ClientError, asyncio.TimeoutError) as e:
             if attempt < retries - 1:
@@ -155,6 +198,29 @@ def _parse_llm_json(raw: str | None) -> dict | None:
     return None
 
 
+def _as_text(value: object, default: str = "") -> str:
+    """Return a stripped string. Nulls and non-strings use the default."""
+    if isinstance(value, str):
+        return value.strip() or default
+    return default
+
+
+def _as_str_list(value: object) -> list[str]:
+    """Return feature or tag strings. A lone string is one item. Nulls are dropped."""
+    if isinstance(value, str):
+        text = value.strip()
+        return [text] if text else []
+    if not isinstance(value, list):
+        return []
+    items: list[str] = []
+    for item in value:
+        if isinstance(item, str):
+            text = item.strip()
+            if text:
+                items.append(text)
+    return items
+
+
 async def extract_tool_info_with_llm(html: str, url: str) -> ToolInfo:
     """
     Use GPT-4o to extract all relevant tool info fields from raw HTML and URL in a single call.
@@ -184,24 +250,26 @@ async def extract_tool_info_with_llm(html: str, url: str) -> ToolInfo:
 
         data = _parse_llm_json(response.choices[0].message.content)
         if data:
-            website = data.get("Website") or url
-            source = data.get("Source URL") or url
+            website = _as_text(data.get("Website"), url)
+            source = _as_text(data.get("Source URL"), url)
+            title = _as_text(data.get("Title"))
+            annotation = _as_text(data.get("ai_tool_annotation"), "not_ai_tool")
             logging.info(
-                f"LLM result: Title='{data.get('Title', '')}', "
-                f"Website='{website}', ai_tool_annotation='{data.get('ai_tool_annotation', '')}'"
+                f"LLM result: Title='{title}', "
+                f"Website='{website}', ai_tool_annotation='{annotation}'"
             )
             return ToolInfo(
-                title=data.get("Title", ""),
+                title=title,
                 website=website,
-                summary=data.get("Core Functionality", "") or data.get("Summary", ""),
-                features=data.get("Key Features", []),
-                pricing=data.get("Pricing") or None,
+                summary=_as_text(data.get("Core Functionality")) or _as_text(data.get("Summary")) or None,
+                features=_as_str_list(data.get("Key Features")),
+                pricing=_as_text(data.get("Pricing")) or None,
                 source=source,
-                target_audience=data.get("Target Audience") or None,
+                target_audience=_as_text(data.get("Target Audience")) or None,
                 main_text=html_trunc,
-                ai_tool_annotation=data.get("ai_tool_annotation", "not_ai_tool"),
-                tags=data.get("Tags", []),
-                publish_date=data.get("Publish Date") or None,
+                ai_tool_annotation=annotation,
+                tags=_as_str_list(data.get("Tags")),
+                publish_date=_as_text(data.get("Publish Date")) or None,
             )
 
         logging.warning(f"LLM extraction returned non-JSON for {url}")

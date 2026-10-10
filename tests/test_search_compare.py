@@ -155,6 +155,24 @@ def test_no_results_payload_is_empty() -> None:
     assert candidates_from_payload({"news_results": [{"title": "no link"}]}, "google_news") == []
 
 
+def test_compare_drops_userinfo_and_merges_host_case_and_default_port() -> None:
+    """A password in the URL is not kept, and :443 does not split the same page."""
+    records = [
+        Candidate(
+            url="https://User:pw@Tools.Example.com:443/Nova?utm=1",
+            title="A",
+            engines={"google"},
+        ),
+        Candidate(url="HTTPS://tools.example.com/Nova", title="B", engines={"google_news"}),
+    ]
+    merged = compare_candidates(records)
+    assert len(merged) == 1
+    assert merged[0].url == "https://tools.example.com/Nova"
+    assert "pw" not in merged[0].url
+    assert "User" not in merged[0].url
+    assert merged[0].engines == {"google", "google_news"}
+
+
 def test_compare_merges_news_date_and_caps() -> None:
     records = [
         Candidate(

@@ -42,6 +42,12 @@ def test_formatter_omits_duplicate_website_line() -> None:
     assert "https://nova.example" in distinct
     assert "https://blog.example/nova" in distinct
 
+    messy = _tool(website="https://nova.example", source="https://nova.example")
+    messy.features = [None, "Summarizes product launches", "Summarizes product launches"]  # type: ignore[list-item]
+    again = format_tool_for_slack(messy, 3)
+    assert again.count("Summarizes product launches") == 1
+    assert "None" not in again
+
 
 def test_dry_run_does_not_call_slack(monkeypatch: pytest.MonkeyPatch) -> None:
     def fail_slack(*_args, **_kwargs):

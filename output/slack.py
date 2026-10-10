@@ -41,10 +41,30 @@ def _mrkdwn_link(url: str) -> str:
     return f"<{url}|{_escape(url)}>"
 
 
+def _feature_lines(features: object) -> list[str]:
+    """Keep unique feature strings. Nulls and non-strings are skipped."""
+    if isinstance(features, str):
+        raw: list[object] = [features]
+    elif isinstance(features, list):
+        raw = list(features)
+    else:
+        raw = []
+    kept: list[str] = []
+    seen: set[str] = set()
+    for feature in raw:
+        if not isinstance(feature, str):
+            continue
+        text = feature.strip()
+        if not text or text in seen or text in _GENERIC_FEATURES or len(text) <= 5:
+            continue
+        seen.add(text)
+        kept.append(text)
+    return kept
+
+
 def format_tool_for_slack(tool: ToolInfo, idx: int) -> str:
     """Format a ToolInfo as Slack mrkdwn. Omit Website when it duplicates Source."""
-    features = list(dict.fromkeys(tool.features or []))
-    features = [f for f in features if f not in _GENERIC_FEATURES and len(f) > 5]
+    features = _feature_lines(tool.features)
     features_str = "\n".join(f"- {_escape(f)}" for f in features) if features else "N/A"
 
     pricing = tool.pricing
@@ -60,7 +80,8 @@ def format_tool_for_slack(tool: ToolInfo, idx: int) -> str:
             overview = " ".join(overview.split()[:80]) + "..."
     overview = overview or "N/A"
 
-    target = tool.target_audience if tool.target_audience and len(tool.target_audience) >= 3 else "N/A"
+    audience = tool.target_audience if isinstance(tool.target_audience, str) else ""
+    target = audience if len(audience) >= 3 else "N/A"
 
     website_line = ""
     if tool.website != tool.source:
