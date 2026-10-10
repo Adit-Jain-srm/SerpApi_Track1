@@ -9,7 +9,7 @@ Copy `.env.example` to `.env` in the repo root and fill it in there. `.env` is g
 | `SERPAPI_API_KEY` | Yes | Local pipeline, and the one Vercel variable |
 | `AZURE_OPENAI_ENDPOINT` | Yes | Page extraction |
 | `AZURE_OPENAI_KEY` | Yes | Page extraction |
-| `AZURE_OPENAI_DEPLOYMENT` | No | Page extraction. Empty defaults to `gpt-4o`. |
+| `AZURE_OPENAI_DEPLOYMENT` | No | Page extraction. Empty defaults to `gpt-5.3-chat`. |
 | `TEAMS_WEBHOOK_URL` | No | Teams delivery |
 | `SLACK_BOT_TOKEN` | No | Slack digest posts |
 | `SLACK_CHANNEL_ID` | No | Slack channel that receives the digest |
@@ -34,7 +34,7 @@ Extraction calls your Azure OpenAI deployment. Set all three for a full run:
 
 - `AZURE_OPENAI_ENDPOINT` — resource URL, including the trailing slash, such as `https://your-resource.openai.azure.com/`
 - `AZURE_OPENAI_KEY` — key for that resource
-- `AZURE_OPENAI_DEPLOYMENT` — deployment name. The example file uses `gpt-5.3-chat`. If the name is empty, the client defaults to `gpt-4o`.
+- `AZURE_OPENAI_DEPLOYMENT` — deployment name. The example file uses `gpt-5.3-chat`. If the name is empty, the client defaults to `gpt-5.3-chat`.
 
 A full run exits before search when the endpoint, the key, or `SERPAPI_API_KEY` is missing. `--dry-run` does not read these Azure values and does not call Azure. The chat request uses `max_completion_tokens` and temperature `1`.
 

@@ -1,5 +1,5 @@
 """
-scraper_agent.py: Async HTML fetching and LLM-based tool info extraction using GPT-4o (Azure OpenAI).
+scraper_agent.py: Async HTML fetching and LLM-based tool info extraction using the configured Azure deployment.
 - Uses ToolInfo dataclass from models.tool_info.
 - All extraction, summarization, and classification is performed in a single LLM call per tool
   using prompts from prompts/ loaded via utils/prompt_loader.
@@ -45,9 +45,9 @@ def _get_client() -> AsyncAzureOpenAI:
             api_version="2025-01-01-preview",
             azure_endpoint=AZURE_OPENAI_ENDPOINT,
         )
-        _deployment = AZURE_OPENAI_DEPLOYMENT or "gpt-4o"
+        _deployment = AZURE_OPENAI_DEPLOYMENT or "gpt-5.3-chat"
         if not AZURE_OPENAI_DEPLOYMENT:
-            logging.warning("AZURE_OPENAI_DEPLOYMENT not set, defaulting to 'gpt-4o'")
+            logging.warning("AZURE_OPENAI_DEPLOYMENT not set, defaulting to 'gpt-5.3-chat'")
     return _client
 
 
@@ -410,7 +410,7 @@ def _as_str_list(value: object) -> list[str]:
 
 async def extract_tool_info_with_llm(html: str, url: str) -> ToolInfo:
     """
-    Use GPT-4o to extract all relevant tool info fields from raw HTML and URL in a single call.
+    Use the configured Azure deployment to extract all relevant tool info fields from raw HTML and URL in a single call.
     Returns a ToolInfo with ai_tool_annotation set to 'ai_tool' or 'not_ai_tool'.
     """
     client = _get_client()

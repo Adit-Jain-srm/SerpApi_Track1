@@ -72,7 +72,7 @@ cp .env.example .env`}</code>
         </li>
       </ul>
       <p>
-        <code>AZURE_OPENAI_DEPLOYMENT</code> selects the deployment. When it is empty, extraction uses <code>gpt-4o</code>.
+        <code>AZURE_OPENAI_DEPLOYMENT</code> selects the deployment. When it is empty, extraction uses <code>gpt-5.3-chat</code>.
       </p>
       <p>Optional:</p>
       <ul>

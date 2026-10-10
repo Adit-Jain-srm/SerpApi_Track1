@@ -1,6 +1,6 @@
 """
 pipeline_agent.py: Orchestrates search, comparison, LLM extraction, deduplication, and output.
-- Uses only LLM-based extraction (GPT-4o) for all tool info fields in a single call per tool,
+- Uses only LLM-based extraction (the configured Azure deployment) for all tool info fields in a single call per tool,
   with ToolInfo from models.tool_info and prompts from prompts/ loaded via utils/prompt_loader.
 - LLM input truncation limit is set in config/constants.py.
 """
