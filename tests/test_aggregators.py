@@ -116,6 +116,17 @@ def test_directory_hosts_and_no_parent_already_covers_a_host() -> None:
                 raise AssertionError(f"{host} is already covered by {parent}")
 
 
+def test_roundup_hosts_from_the_digest_are_dropped() -> None:
+    for host in ("worldlybrief.com", "readsforyou.com"):
+        assert host in AGGREGATOR_DOMAINS
+        assert is_aggregator(f"https://{host}/new-ai-tools-launched-this-week/")
+        assert is_aggregator(f"https://www.{host}/8-new-ai-tools/")
+
+    assert "cbsnews.com" not in AGGREGATOR_DOMAINS
+    assert "medium.com" in AGGREGATOR_DOMAINS
+    assert "substack.com" in AGGREGATOR_DOMAINS
+
+
 def test_401_410_and_451_are_not_retried() -> None:
     for status in (401, 403, 404, 410, 451):
         assert status in NON_RETRYABLE_STATUS_CODES

@@ -16,6 +16,7 @@ AGGREGATOR_DOMAINS = frozenset([
     # AI tool aggregators
     "forum.freecodecamp.org", "futuretools.io", "aitools.fyi", "toolify.ai", "toolsai.io",
     "producthunt.com", "theresanaiforthat.com", "futurepedia.io", "topai.tools",
+    "worldlybrief.com", "readsforyou.com",
     # Review & comparison sites
     "g2.com", "capterra.com", "getapp.com", "alternativeto.net", "slant.co", "trustpilot.com",
     # Freelance & job boards

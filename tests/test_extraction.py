@@ -1,9 +1,10 @@
-"""Azure extraction request shape. No network."""
+"""Azure extraction request shape and prompt rules. No network."""
 import asyncio
 
 import pytest
 
 from agents.scraper_agent import extract_tool_info_with_llm
+from utils.prompt_loader import load_prompt
 
 
 def test_extraction_sends_max_completion_tokens(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -48,3 +49,17 @@ def test_extraction_sends_max_completion_tokens(monkeypatch: pytest.MonkeyPatch)
     assert captured["model"] == "gpt-4o"
     assert tool.title == "Nova"
     assert tool.ai_tool_annotation == "ai_tool"
+
+
+def test_prompts_reject_roundups_and_third_party_articles() -> None:
+    """Listicles, news roundups, and articles about someone else's tool are not_ai_tool."""
+    system = load_prompt("system_prompt.txt")
+    user = load_prompt("user_prompt.txt")
+    combined = f"{system}\n{user}".lower()
+
+    assert "listicle" in combined
+    assert "news roundup" in combined
+    assert "someone else's tool" in combined
+    assert "not_ai_tool" in combined
+    assert "err on the side of 'ai_tool'" not in combined
+    assert "if unsure, use 'not_ai_tool'" in user.lower()
