@@ -100,13 +100,15 @@ def test_planner_date_window(days: int, tbs: str, after_date: str) -> None:
     assert len(BASE_QUERIES) == 4
     assert len(HOMEPAGE_QUERIES) == 2
     joined = " ".join(BASE_QUERIES).lower()
-    assert "new ai tool" in joined
-    assert "new ai app" in joined
+    assert "just launched" in joined
+    assert "ai tool" in joined
     assert "now available" in joined
     assert "open-source" in joined
+    assert "public beta" in joined
     homepage = " ".join(HOMEPAGE_QUERIES).lower()
     assert "pricing" in homepage
     assert "sign up" in homepage
+    assert "introducing" in homepage
     assert all("after:" not in query and "site:" not in query for query in BASE_QUERIES)
     assert all("after:" not in query and "site:" not in query for query in HOMEPAGE_QUERIES)
 

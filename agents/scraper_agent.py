@@ -371,6 +371,39 @@ def _best_product_url(urls: list[str]) -> str:
     return min(urls, key=rank)
 
 
+def product_leads(tools: list[ToolInfo], already_fetched: set[str]) -> list[str]:
+    """Product homepages named by a fetched page, skipping pages already fetched.
+
+    An article that names one product domain is a lead even when the article
+    itself is not_ai_tool. Listicles do not produce a lead, because they do not
+    leave a single product website. The list is capped.
+    """
+    from agents.search_agent import is_aggregator, normalize_url
+
+    from config.constants import FOLLOW_HOP_LIMIT
+
+    seen = {normalize_url(url) for url in already_fetched if url}
+    leads: list[str] = []
+    for tool in tools:
+        site = (tool.website or "").strip()
+        source = (tool.source or "").strip()
+        if not site or not source or _same_page(site, source):
+            continue
+        if page_is_article(site) or is_aggregator(site):
+            continue
+        try:
+            url = normalize_url(site)
+        except Exception:
+            continue
+        if not url.startswith("https://") or url in seen:
+            continue
+        seen.add(url)
+        leads.append(url)
+        if len(leads) >= FOLLOW_HOP_LIMIT:
+            break
+    return leads
+
+
 def apply_article_website(tool: ToolInfo, html: str, page_url: str) -> ToolInfo:
     """Prefer one official product URL over a blog or news URL.
 

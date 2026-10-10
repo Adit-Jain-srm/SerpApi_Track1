@@ -93,20 +93,24 @@ BATCH_SIZE = 4
 LLM_CONCURRENCY_LIMIT = 2
 SEARCH_DAYS = 7
 
-# Four launch-intent queries. Web and news each run all four.
+# Launch announcements. News and web both run these, then the pipeline
+# follows a single product URL named on an article.
 BASE_QUERIES = [
-    "new AI tool launch",
-    "new AI app launch",
-    "AI tool now available",
-    "open-source AI launch",
+    '"just launched" ("AI tool" OR "AI app" OR "AI agent")',
+    '"now available" ("AI assistant" OR "AI copilot") (pricing OR "sign up")',
+    '"public beta" AI (platform OR app OR agent)',
+    '"open-source" ("AI tool" OR "AI agent") launched',
 ]
 
 # Homepage-intent queries. Web only, inside the same date window.
 # 6 web searches + 4 news searches = 10. Not a crawl.
 HOMEPAGE_QUERIES = [
-    '"AI" launched ("pricing" OR "sign up" OR "get started")',
-    '"we launched" AI ("start free" OR signup OR pricing)',
+    '"we launched" AI (pricing OR "sign up" OR "get started")',
+    'intitle:introducing ("AI tool" OR "AI app" OR "AI agent")',
 ]
+
+# Articles name a product URL. This caps the extra homepage fetches.
+FOLLOW_HOP_LIMIT = 12
 
 DEFAULT_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",

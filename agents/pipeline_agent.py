@@ -13,8 +13,14 @@ from openai import RateLimitError
 from tqdm import tqdm
 
 from agents.config_agent import Settings
-from agents.scraper_agent import blacklist, extract_tool_info_with_llm, fetch_with_retries
-from agents.search_agent import SearchClient, format_comparison_table, run_search
+from agents.scraper_agent import (
+    blacklist,
+    extract_tool_info_with_llm,
+    fetch_with_retries,
+    page_is_article,
+    product_leads,
+)
+from agents.search_agent import SearchClient, format_comparison_table, normalize_url, run_search
 from config.constants import BATCH_SIZE, LLM_CONCURRENCY_LIMIT, SEARCH_DAYS
 from models.tool_info import ToolInfo
 
@@ -173,6 +179,32 @@ def _print_summary_report(
     print(f"Skipped (robots/empty): {num_total - num_success - num_fail}")
 
 
+def _select_tools(found: list[ToolInfo], followed: list[ToolInfo]) -> list[ToolInfo]:
+    """Keep product pages. An article is a fallback only when its homepage did not extract.
+
+    A second-hop page marked ai_tool replaces the article that named it. A
+    homepage that failed to fetch or was not a tool leaves the article in the
+    digest when that article itself was ai_tool.
+    """
+    homes = [tool for tool in followed if tool.ai_tool_annotation == "ai_tool"]
+    home_urls: set[str] = set()
+    for tool in homes:
+        for raw in (tool.website, tool.source):
+            if raw:
+                home_urls.add(normalize_url(raw))
+
+    chosen = list(homes)
+    for tool in found:
+        if tool.ai_tool_annotation != "ai_tool":
+            continue
+        source = tool.source or ""
+        website = tool.website or ""
+        if page_is_article(source) and website and normalize_url(website) in home_urls:
+            continue
+        chosen.append(tool)
+    return chosen
+
+
 async def run_pipeline(
     settings: Settings,
     client: SearchClient | None = None,
@@ -195,7 +227,16 @@ async def run_pipeline(
         html_map, error_list = await fetch_all_html(urls, ctx.session, settings.batch_size)
         tools = await extract_all_tool_info(html_map, settings.llm_concurrency_limit)
 
-        ai_tools = [t for t in tools if t.ai_tool_annotation == "ai_tool"]
+        leads = product_leads(tools, set(html_map))
+        followed: list[ToolInfo] = []
+        if leads:
+            logging.info("Following %s product page(s) named by articles", len(leads))
+            more_html, more_errors = await fetch_all_html(leads, ctx.session, settings.batch_size)
+            followed = await extract_all_tool_info(more_html, settings.llm_concurrency_limit)
+            html_map.update(more_html)
+            error_list.extend(more_errors)
+
+        ai_tools = _select_tools(tools, followed)
         ai_tools = _deduplicate(ai_tools)
         ai_tools = _filter_by_recency(ai_tools, days=settings.search_days)
 
