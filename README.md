@@ -26,7 +26,7 @@ flowchart TD
   web --> compare[Compare candidates]
   news --> compare
   compare --> fetch[Fetch with TLS]
-  fetch --> extract[GPT-4o extract]
+  fetch --> extract[Azure extract]
   extract --> filter[Filter]
   filter --> console[Console]
   filter --> teams[Optional Teams]
@@ -53,7 +53,7 @@ flowchart TD
 1. **Plan.** `--days` sets the window (default 7). When the flag is omitted, `SEARCH_DAYS` overrides that default. Web search is pinned to `google` with `tbs=qdr:d{N}` (`tbs=qdr:d7` for seven days). Web queries do not get an `after:` suffix. News search uses `google_news` and puts `after:YYYY-MM-DD` in the query, from the UTC start of the window. News does not receive `tbs`.
 2. **Search.** Four launch-intent queries — new tool, new app, now available, open-source launch — run through `web_search` and `news_search`. Two homepage-intent queries — a product that launched, with pricing or a signup — run through web search only, inside the same date window. That is ten searches per run, sized for the free monthly credit pool. Web links come from `organic_results[].link`. News links come from `news_results[].link`. If one engine fails, the run continues with the other. If both fail, the process exits non-zero.
 3. **Compare.** Each candidate keeps its URL, title, snippet, published time, and which engines produced it. URLs are normalized, aggregator domains are dropped, and duplicates merge. When web and news disagree on the date, the news date is kept. `--max-urls` caps how many candidates continue.
-4. **Act.** Pages are fetched over TLS and Azure OpenAI extracts a structured tool record. The deployment name is `AZURE_OPENAI_DEPLOYMENT`. When that variable is empty the client defaults to `gpt-4o`. The call sends `max_completion_tokens` and temperature `1`, which this chat API accepts. The console prints the summary. Teams receives a message when `TEAMS_WEBHOOK_URL` is set and `--skip-teams` was not passed. Slack receives a message when `SLACK_BOT_TOKEN` and `SLACK_CHANNEL_ID` are set and `--skip-slack` was not passed. `--dry-run` prints the comparison table and stops before fetch. It does not call Azure or post to Teams or Slack. A sample of the Teams shape is `assets/teams_output_example.png`.
+4. **Act.** Pages are fetched over TLS and Azure OpenAI extracts a structured tool record. The deployment name is `AZURE_OPENAI_DEPLOYMENT`. When that variable is empty the client defaults to `gpt-5.3-chat`. The call sends `max_completion_tokens` and temperature `1`, which this chat API accepts. The console prints the summary. Teams receives a message when `TEAMS_WEBHOOK_URL` is set and `--skip-teams` was not passed. Slack receives a message when `SLACK_BOT_TOKEN` and `SLACK_CHANNEL_ID` are set and `--skip-slack` was not passed. `--dry-run` prints the comparison table and stops before fetch. It does not call Azure or post to Teams or Slack. A sample of the Teams shape is `assets/teams_output_example.png`.
 
 Key setup, the interactive MCP client, and the hackathon notes:
 
@@ -100,7 +100,7 @@ python -m pip install -r requirements.txt
 cp .env.example .env
 ```
 
-Fill in `.env` from [.env.example](.env.example). Required names are `SERPAPI_API_KEY`, `AZURE_OPENAI_ENDPOINT`, and `AZURE_OPENAI_KEY`. `AZURE_OPENAI_DEPLOYMENT` selects the deployment and defaults to `gpt-4o` when empty. Optional names are `TEAMS_WEBHOOK_URL`, `SLACK_BOT_TOKEN`, `SLACK_CHANNEL_ID`, `SLACK_APP_TOKEN`, `BATCH_SIZE`, `LLM_CONCURRENCY_LIMIT`, and `SEARCH_DAYS`. Slack sits beside Teams. Posting needs the bot token and the channel ID for the **AI-Search-Buddy** app. `SLACK_APP_TOKEN` is stored for a future socket-mode listener and is not used to post. Leave the bot token or channel ID empty to skip Slack. Invite the bot to the channel, then paste the channel ID (not the channel name). `--skip-slack` skips Slack even when both are set, and `--dry-run` does not post to Slack or Teams. Do not commit `.env`. Serper is not a variable in this project.
+Fill in `.env` from [.env.example](.env.example). Required names are `SERPAPI_API_KEY`, `AZURE_OPENAI_ENDPOINT`, and `AZURE_OPENAI_KEY`. `AZURE_OPENAI_DEPLOYMENT` selects the deployment and defaults to `gpt-5.3-chat` when empty. Optional names are `TEAMS_WEBHOOK_URL`, `SLACK_BOT_TOKEN`, `SLACK_CHANNEL_ID`, `SLACK_APP_TOKEN`, `BATCH_SIZE`, `LLM_CONCURRENCY_LIMIT`, and `SEARCH_DAYS`. Slack sits beside Teams. Posting needs the bot token and the channel ID for the **AI-Search-Buddy** app. `SLACK_APP_TOKEN` is stored for a future socket-mode listener and is not used to post. Leave the bot token or channel ID empty to skip Slack. Invite the bot to the channel, then paste the channel ID (not the channel name). `--skip-slack` skips Slack even when both are set, and `--dry-run` does not post to Slack or Teams. Do not commit `.env`. Serper is not a variable in this project.
 
 The public site, when deployed, uses Vercel project root `web/` and one variable, `SERPAPI_API_KEY`. Azure, Teams, and Slack stay off Vercel. Details are in [docs/KEYS.md](docs/KEYS.md).
 
