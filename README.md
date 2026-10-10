@@ -155,6 +155,14 @@ The suite stays offline: a fake search client stands in for SerpApi, and the tes
 
 This is the shape of one webhook message, filled with sample fields so the layout is readable. It is a format example.
 
+![Sample Teams digest card for Quibim](assets/teams_output_example.png)
+
+Sample Teams card of the digest shape: name, website, audience, overview, features, pricing, and source.
+
+![Sample Slack digest for SynthID Detector](assets/Slack_output_example.png)
+
+Sample Slack message of the same digest shape, posted in #tool-updates.
+
 When the website and the source URL are the same, the website line is omitted.
 
 ```text
