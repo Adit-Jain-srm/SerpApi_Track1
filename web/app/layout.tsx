@@ -1,19 +1,28 @@
 import type { Metadata } from "next";
-import { Fraunces, Newsreader } from "next/font/google";
+import localFont from "next/font/local";
 
 import "./globals.css";
 
-const display = Fraunces({
-  subsets: ["latin"],
+const display = localFont({
+  src: "../fonts/fraunces-latin.woff2",
+  weight: "100 900",
   display: "swap",
   variable: "--font-display",
-  axes: ["opsz", "SOFT", "WONK"],
 });
 
-const text = Newsreader({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
-  style: ["normal", "italic"],
+const text = localFont({
+  src: [
+    {
+      path: "../fonts/newsreader-latin.woff2",
+      weight: "200 800",
+      style: "normal",
+    },
+    {
+      path: "../fonts/newsreader-italic.woff2",
+      weight: "200 800",
+      style: "italic",
+    },
+  ],
   display: "swap",
   variable: "--font-text",
 });
