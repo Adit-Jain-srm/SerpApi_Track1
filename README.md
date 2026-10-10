@@ -8,6 +8,8 @@ The project existed before this hackathon. An earlier version searched with Serp
 
 Clone URL: `https://github.com/Adit-Jain-srm/SerpApi_Track1`
 
+Live site: [https://serpapi-track1.vercel.app](https://serpapi-track1.vercel.app). The install and command guide is [https://serpapi-track1.vercel.app/guide](https://serpapi-track1.vercel.app/guide).
+
 ## Who it is for
 
 Product, research, and operations people who need the launches from a recent window, with aggregator and news noise already removed. The output is a handful of named tools, each with a source page, a short overview, and optional delivery to a Teams or Slack channel.
@@ -17,20 +19,41 @@ SerpApi web and news results are required. Every tool in the digest is a compare
 ## Pipeline
 
 ```mermaid
-flowchart LR
+flowchart TD
   cli[CLI and env] --> plan[Query plan]
-  plan --> web[web_search google]
-  plan --> news[news_search]
+  plan --> web["web_search google, tbs=qdr:dN"]
+  plan --> news["news_search after date"]
   web --> compare[Compare candidates]
   news --> compare
-  compare --> fetch[Fetch and extract]
-  fetch --> out[Console, Teams, or Slack]
+  compare --> fetch[Fetch with TLS]
+  fetch --> extract[GPT-4o extract]
+  extract --> filter[Filter]
+  filter --> console[Console]
+  filter --> teams[Optional Teams]
+  filter --> slack[Optional Slack]
+```
+
+```mermaid
+flowchart TD
+  search[Search both engines] --> oneDown{One engine down}
+  oneDown -->|yes| continue[Continue with the other]
+  oneDown -->|no| bothDown{Both engines down}
+  bothDown -->|yes| failed[Exit non-zero]
+  bothDown -->|no| dryRun{Dry run}
+  dryRun -->|yes| table[Stop before fetch]
+  dryRun -->|no| fetched[Fetch and extract]
+  fetched --> teamsMissing{Teams webhook missing}
+  teamsMissing -->|yes| skipTeams[Skip Teams]
+  teamsMissing -->|no| postTeams[Post Teams]
+  fetched --> slackMissing{Slack token or channel missing}
+  slackMissing -->|yes| skipSlack[Skip Slack]
+  slackMissing -->|no| postSlack[Post Slack]
 ```
 
 1. **Plan.** `--days` sets the window (default 7). When the flag is omitted, `SEARCH_DAYS` overrides that default. Web search is pinned to `google` with `tbs=qdr:d{N}` (`tbs=qdr:d7` for seven days). Web queries do not get an `after:` suffix. News search uses `google_news` and puts `after:YYYY-MM-DD` in the query, from the UTC start of the window. News does not receive `tbs`.
 2. **Search.** Four launch-intent queries — new tool, new app, now available, open-source launch — run through `web_search` and `news_search`. That is eight searches per run, sized for the free monthly credit pool. Web links come from `organic_results[].link`. News links come from `news_results[].link`. If one engine fails, the run continues with the other. If both fail, the process exits non-zero.
 3. **Compare.** Each candidate keeps its URL, title, snippet, published time, and which engines produced it. URLs are normalized, aggregator domains are dropped, and duplicates merge. When web and news disagree on the date, the news date is kept. `--max-urls` caps how many candidates continue.
-4. **Act.** Pages are fetched and Azure OpenAI extracts a structured tool record. The console prints the summary. Teams receives a message when `TEAMS_WEBHOOK_URL` is set. Slack receives a message when `SLACK_BOT_TOKEN` and `SLACK_CHANNEL_ID` are set. `--dry-run` prints the comparison table and does not fetch, call Azure, or post to Teams or Slack.
+4. **Act.** Pages are fetched over TLS and Azure OpenAI extracts a structured tool record. The deployment name is `AZURE_OPENAI_DEPLOYMENT`. When that variable is empty the client defaults to `gpt-4o`. The call sends `max_completion_tokens` and temperature `1`, which this chat API accepts. The console prints the summary. Teams receives a message when `TEAMS_WEBHOOK_URL` is set and `--skip-teams` was not passed. Slack receives a message when `SLACK_BOT_TOKEN` and `SLACK_CHANNEL_ID` are set and `--skip-slack` was not passed. `--dry-run` prints the comparison table and stops before fetch. It does not call Azure or post to Teams or Slack. A sample of the Teams shape is `assets/teams_output_example.png`.
 
 Key setup, the interactive MCP client, and the hackathon notes:
 
@@ -96,23 +119,37 @@ python main.py --days 7 --max-urls 3
 
 | Flag | Behavior |
 |---|---|
-| `--days` | Date window in days. Default 7, or `SEARCH_DAYS` when the flag is omitted. |
+| `--days` | Date window in days. Default 7, or `SEARCH_DAYS` when the flag is omitted. Must be a positive integer. |
 | `--dry-run` | Print the comparison table. Do not fetch, call Azure, or post to Teams or Slack. |
 | `--skip-teams` | Skip the webhook. Still print the console summary. |
 | `--skip-slack` | Skip Slack even when the bot token and channel ID are set. Still print the console summary. |
-| `--max-urls` | Cap how many compared candidates are fetched and extracted. |
+| `--max-urls` | Cap how many compared candidates are fetched and extracted. Must be a positive integer. |
 
-`--dry-run` still expects the SerpApi and Azure variables to be present. It does not call Azure.
+`--dry-run` needs `SERPAPI_API_KEY`. It does not need the Azure variables, and it does not call Azure.
+
+### Edge cases
+
+| Input | What happens |
+|---|---|
+| `--days 0` or any negative `--days` | Exit code 2. stderr says `--days must be a positive integer`. No traceback, no search, no fetch, no Teams, no Slack. |
+| `--max-urls 0` or any negative `--max-urls` | Exit code 2. stderr says `--max-urls must be a positive integer`. The run does not print an empty table. |
+| One of web or news fails | The run logs the error and continues with the engine that succeeded. |
+| Web and news both fail | Exit code 1. stderr says both searches failed. |
+| `--dry-run` | Search and the comparison table only. Stops before fetch. |
+| `TEAMS_WEBHOOK_URL` empty, or `--skip-teams` | Console summary only. Teams is skipped. |
+| Slack token or channel empty, or `--skip-slack` | Slack is skipped. The rest of the run continues. |
+
+On Windows the process sets stdout and stderr to UTF-8, replacing characters the console cannot store, so a snippet outside cp1252 does not abort the table.
 
 ## Tests
 
 From the repo root, with the virtual environment active:
 
 ```bash
-pytest
+python -m pytest tests -q
 ```
 
-On Windows, if `pytest` is not on `PATH`, use `python -m pytest`. The suite stays offline: a fake search client stands in for SerpApi, and the tests do not call Azure, Teams, or Slack. They cover the date plan, candidate merge, recency, dry-run, and Teams and Slack formatting.
+The suite stays offline: a fake search client stands in for SerpApi, and the tests do not call Azure, Teams, or Slack. They cover the date plan, candidate merge, recency, dry-run, invalid `--days` and `--max-urls`, Windows console text, the Azure chat parameter names, and Teams and Slack formatting.
 
 ## Sample Teams message
 

@@ -33,12 +33,14 @@ Comparison happens before any fetch. Each candidate keeps its URL, title, snippe
 
 ### Act
 
-The scraper fetches the compared URLs and Azure OpenAI extracts a `ToolInfo`. The console prints the summary. Teams gets a message only when `TEAMS_WEBHOOK_URL` is set and `--skip-teams` was not passed.
+The scraper fetches the compared URLs over TLS and Azure OpenAI extracts a `ToolInfo`. The console prints the summary. Teams gets a message only when `TEAMS_WEBHOOK_URL` is set and `--skip-teams` was not passed. Slack gets a message only when `SLACK_BOT_TOKEN` and `SLACK_CHANNEL_ID` are set and `--skip-slack` was not passed. A missing webhook, token, or channel skips that output and leaves the console summary.
 
-- `--dry-run` prints the comparison table and does not fetch, call Azure, or post to Teams.
-- `--skip-teams` still prints the console summary.
+- `--dry-run` needs `SERPAPI_API_KEY` only. It prints the comparison table and does not fetch, call Azure, or post to Teams or Slack.
+- `--days 0`, a negative `--days`, `--max-urls 0`, and a negative `--max-urls` exit with code 2 and a one-line usage error. They do not search.
+- If one engine fails, the run continues with the other. If both fail, the process exits non-zero.
+- `--skip-teams` and `--skip-slack` still print the console summary.
 
-Usefulness is the short list a team can read: launches inside the window, with aggregators already removed, delivered in the console or in Teams.
+Usefulness is the short list a team can read: launches inside the window, with aggregators already removed, delivered in the console, in Teams, or in Slack. The live film is [https://serpapi-track1.vercel.app](https://serpapi-track1.vercel.app) and the command guide is [https://serpapi-track1.vercel.app/guide](https://serpapi-track1.vercel.app/guide).
 
 ## Local demo (under three minutes)
 
@@ -49,7 +51,7 @@ Record the terminal and this README. No live key on screen. Blur `.env` if it is
 | 0:00–0:20 | README title and author | "This is a digest of AI tools that launched inside a date window, for a team that cannot watch the open web. The project existed before this hackathon. This submission is Track 01." |
 | 0:20–0:40 | `.env.example` and `docs/KEYS.md` | "SerpApi web and news are required. Serper is not used. The key stays in `.env`. A run is eight searches because of the free credit pool." |
 | 0:40–1:25 | `python main.py --dry-run --days 7` | "Plan, then search, then compare. Web is Google with `tbs=qdr:d7`. News uses `after:` and the UTC date seven days back. This table is the candidate list. Nothing is fetched." |
-| 1:25–2:20 | `python main.py --skip-teams --days 7 --max-urls 3` | "Compare already chose the URLs. Azure extracts only those pages. Teams is skipped. The console list is the digest." |
+| 1:25–2:20 | `python main.py --days 7 --max-urls 3 --skip-teams --skip-slack` | "Compare already chose the URLs. Azure extracts only those pages. Teams and Slack are skipped. The console list is the digest." |
 | 2:20–2:40 | Sample Teams message in the README | "With a webhook, each tool is this message. The website line is omitted when it matches the source." |
 | 2:40–3:00 | `docs/MCP.md` warning | "The pipeline does not call MCP. Interactive clients use `https://mcp.serpapi.com/mcp` and `Authorization: Bearer` from `SERPAPI_API_KEY`. The key never goes in the URL." |
 

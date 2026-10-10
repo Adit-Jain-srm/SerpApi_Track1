@@ -26,17 +26,19 @@ Create a key in the SerpApi dashboard: [serpapi.com/manage-api-key](https://serp
 
 Each run issues eight searches: four launch-intent queries, once through web search and once through news search. That cap exists because the free plan draws from a monthly credit pool. Eight searches is a digest of recent launches. It is not a crawl. Raising the query count spends that pool on every run.
 
-A missing `SERPAPI_API_KEY` is a configuration error. The process exits before it searches.
+A missing `SERPAPI_API_KEY` is a configuration error. The process exits before it searches. `--dry-run` needs this key and does not need the Azure variables.
 
 ## Azure OpenAI
 
-Extraction calls your Azure OpenAI deployment. Set all three:
+Extraction calls your Azure OpenAI deployment. Set all three for a full run:
 
 - `AZURE_OPENAI_ENDPOINT` — resource URL, including the trailing slash, such as `https://your-resource.openai.azure.com/`
 - `AZURE_OPENAI_KEY` — key for that resource
-- `AZURE_OPENAI_DEPLOYMENT` — deployment name
+- `AZURE_OPENAI_DEPLOYMENT` — deployment name. The example file uses `gpt-5.3-chat`. If the name is empty, the client defaults to `gpt-4o`.
 
-A missing endpoint or key is a configuration error, including on `--dry-run`. Dry-run does not call Azure. A full extraction also needs `AZURE_OPENAI_DEPLOYMENT`.
+A full run exits before search when the endpoint, the key, or `SERPAPI_API_KEY` is missing. `--dry-run` does not read these Azure values and does not call Azure. The chat request uses `max_completion_tokens` and temperature `1`.
+
+`--days` and `--max-urls`, when passed, must be positive integers. `0` or a negative value exits with code 2 and a one-line usage error before any search.
 
 ## Teams
 

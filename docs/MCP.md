@@ -62,3 +62,5 @@ codex mcp add serpapi --url https://mcp.serpapi.com/mcp --bearer-token-env-var S
 ## What the pipeline uses instead
 
 `python main.py` builds its own client with `provider="function"` and never opens `mcp.serpapi.com`. An MCP chat can search ad hoc. The weekly digest cannot, and it will not pick up tools you called from an interactive session.
+
+The digest date window, comparison table, and delivery flags are the CLI in the README, not MCP tools. `--days 0` and `--max-urls 0` exit with code 2 before any search. `--dry-run` still calls SerpApi through this library and stops before page fetch. The public site at `https://serpapi-track1.vercel.app` proves one fixed Google query. Its guide is `/guide`. That site does not run this MCP client.

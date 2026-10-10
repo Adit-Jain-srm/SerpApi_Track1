@@ -84,7 +84,7 @@ cp .env.example .env`}</code>
         </li>
       </ul>
       <p>
-        <code>--dry-run</code> still expects the SerpApi and Azure names to be present. It does not call Azure.
+        <code>--dry-run</code> needs <code>SERPAPI_API_KEY</code>. It does not need the Azure names, and it does not call Azure.
       </p>
 
       <h2>Run</h2>
@@ -99,7 +99,7 @@ cp .env.example .env`}</code>
           <dt>
             <code>--days</code>
           </dt>
-          <dd>Date window in days. Default 7, or SEARCH_DAYS when the flag is omitted.</dd>
+          <dd>Date window in days. Default 7, or SEARCH_DAYS when the flag is omitted. Must be a positive integer.</dd>
         </div>
         <div>
           <dt>
@@ -123,7 +123,7 @@ cp .env.example .env`}</code>
           <dt>
             <code>--max-urls</code>
           </dt>
-          <dd>Cap how many compared candidates are fetched and extracted.</dd>
+          <dd>Cap how many compared candidates are fetched and extracted. Must be a positive integer.</dd>
         </div>
       </dl>
       <pre>
@@ -131,8 +131,24 @@ cp .env.example .env`}</code>
 python main.py --dry-run
 python main.py --skip-teams
 python main.py --skip-slack
-python main.py --days 7 --max-urls 3`}</code>
+python main.py --days 7 --max-urls 3
+python main.py --days 7 --max-urls 3 --skip-teams --skip-slack`}</code>
       </pre>
+
+      <h2>Edge cases</h2>
+      <ul>
+        <li>
+          <code>--days 0</code> and a negative <code>--days</code> exit with code 2. The message is <code>--days must be a positive integer</code>. There is no traceback and no search.
+        </li>
+        <li>
+          <code>--max-urls 0</code> and a negative <code>--max-urls</code> exit with code 2. The message is <code>--max-urls must be a positive integer</code>. The run does not print an empty table.
+        </li>
+        <li>If one search engine fails, the run continues with the other. If both fail, the process exits non-zero.</li>
+        <li>
+          <code>--dry-run</code> prints the comparison table and stops before fetch.
+        </li>
+        <li>A missing Teams webhook, or <code>--skip-teams</code>, skips Teams. A missing Slack token or channel, or <code>--skip-slack</code>, skips Slack.</li>
+      </ul>
 
       <h2>Tests</h2>
       <p>From the repo root, with the virtual environment active:</p>
