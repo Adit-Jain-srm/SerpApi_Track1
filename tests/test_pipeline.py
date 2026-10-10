@@ -1,4 +1,6 @@
 """Recency, dedupe, dry-run, and the Teams skip flag."""
+import io
+import sys
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -96,6 +98,85 @@ def test_dry_run_does_not_fetch_or_call_azure(
     assert all("qdr:w" not in str(call.get("tbs", "")) for call in web_calls)
     assert all("after:" not in call["q"] for call in web_calls)
     assert news_calls and all("tbs" not in call and "after:" in call["q"] for call in news_calls)
+
+
+def test_dry_run_prints_titles_outside_cp1252(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Windows consoles use cp1252. A snippet character must not abort the table."""
+
+    def fail_fetch(*_args, **_kwargs):
+        raise AssertionError("fetch was called")
+
+    def fail_azure(*_args, **_kwargs):
+        raise AssertionError("Azure client was called")
+
+    def fail_teams(*_args, **_kwargs):
+        raise AssertionError("Teams was called")
+
+    def fail_slack(*_args, **_kwargs):
+        raise AssertionError("Slack was called")
+
+    raw_out = io.BytesIO()
+    raw_err = io.BytesIO()
+    monkeypatch.setattr(sys, "stdout", io.TextIOWrapper(raw_out, encoding="cp1252", errors="strict"))
+    monkeypatch.setattr(sys, "stderr", io.TextIOWrapper(raw_err, encoding="cp1252", errors="strict"))
+    monkeypatch.setattr("agents.pipeline_agent.fetch_with_retries", fail_fetch)
+    monkeypatch.setattr("agents.scraper_agent._get_client", fail_azure)
+    monkeypatch.setattr("agents.scraper_agent.AsyncAzureOpenAI", fail_azure)
+    monkeypatch.setattr("main.send_tool_to_teams", fail_teams)
+    monkeypatch.setattr("main.send_tool_to_slack", fail_slack)
+    monkeypatch.setenv("TEAMS_WEBHOOK_URL", "https://example.invalid/hook")
+    monkeypatch.setenv("SLACK_BOT_TOKEN", "test-token")
+    monkeypatch.setenv("SLACK_CHANNEL_ID", "C_TEST")
+
+    def handler(params: dict) -> dict:
+        if params.get("engine") == "google":
+            return {
+                "organic_results": [
+                    {
+                        "link": "https://tools.example.com/nova",
+                        "title": "Hawai\u02bbi",
+                        "snippet": "Launch with \u02bb in the name",
+                    }
+                ]
+            }
+        return {"news_results": []}
+
+    code = main(["--dry-run", "--days", "1"], client=RecordingClient(handler))
+    assert code == 0
+    sys.stdout.flush()
+    text = raw_out.getvalue().decode("utf-8")
+    assert "https://tools.example.com/nova" in text
+    assert "Hawai\u02bbi" in text
+    assert "Traceback" not in raw_err.getvalue().decode("utf-8", errors="replace")
+
+
+def test_non_positive_days_and_url_caps_exit_cleanly(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Zero and negative caps are a usage error, not a traceback or a search."""
+
+    def fail_search(*_args, **_kwargs):
+        raise AssertionError("search was called")
+
+    monkeypatch.setattr("main.run_pipeline", fail_search)
+
+    for argv in (["--days", "0"], ["--days", "-1"]):
+        with pytest.raises(SystemExit) as caught:
+            main(argv)
+        assert caught.value.code == 2
+        err = capsys.readouterr().err
+        assert "Traceback" not in err
+        assert "--days must be a positive integer" in err
+
+    with pytest.raises(SystemExit) as caught:
+        main(["--max-urls", "0", "--dry-run"])
+    assert caught.value.code == 2
+    err = capsys.readouterr().err
+    assert "Traceback" not in err
+    assert "--max-urls must be a positive integer" in err
 
 
 def test_skip_teams_still_prints_summary(

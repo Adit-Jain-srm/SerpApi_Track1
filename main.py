@@ -24,6 +24,26 @@ from output.slack import send_tool_to_slack
 from output.teams import send_tool_to_teams
 
 
+def _configure_stdio() -> None:
+    """Print search text on Windows consoles that default to cp1252.
+
+    Snippets include characters that strict cp1252 cannot encode. UTF-8 is
+    preferred. If the stream cannot change encoding, unencodable characters
+    are replaced so the process still exits cleanly.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if not callable(reconfigure):
+            continue
+        try:
+            reconfigure(encoding="utf-8", errors="replace")
+        except (OSError, ValueError):
+            try:
+                reconfigure(errors="replace")
+            except (OSError, ValueError):
+                continue
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Build the discovery CLI."""
     parser = argparse.ArgumentParser(
@@ -74,6 +94,7 @@ def _settings_from_args(args: argparse.Namespace) -> Settings:
 
 def main(argv: list[str] | None = None, client: SearchClient | None = None) -> int:
     """Run the discovery pipeline. Returns a process exit code."""
+    _configure_stdio()
     setup_logging()
     parser = build_parser()
     args = parser.parse_args(argv)
