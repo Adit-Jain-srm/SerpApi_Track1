@@ -581,3 +581,207 @@ a {
 .guide-flags dd {
   margin: 0.2rem 0 0;
 }
+
+.home {
+  width: min(100% - 2rem, 72rem);
+  margin: 0 auto;
+  padding: max(1.1rem, env(safe-area-inset-top)) 0 4rem;
+}
+
+.home .mast,
+.home .rules,
+.home .spread,
+.home .proof {
+  width: auto;
+  margin-inline: 0;
+}
+
+.home .spread {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  gap: 1.5rem 2rem;
+  align-items: end;
+  margin-top: 1.4rem;
+}
+
+.home h1 {
+  margin: 0.35rem 0 0;
+  font-family: var(--font-display), Palatino, serif;
+  font-size: clamp(2.1rem, 4.6vw, 3.6rem);
+  font-weight: 560;
+  letter-spacing: -0.035em;
+  line-height: 1.02;
+  text-wrap: balance;
+}
+
+.kicker {
+  margin: 0;
+  color: var(--accent);
+  font-style: italic;
+  font-size: 1.05rem;
+}
+
+.lede,
+.band-note,
+.useful p,
+.feature-list p,
+.robust span {
+  margin: 0.7rem 0 0;
+  max-width: 62ch;
+  color: var(--ink);
+  font-size: 1.12rem;
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+
+.home .actions {
+  flex-direction: row;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1.1rem;
+}
+
+.home .plate-frame,
+.home .plate img {
+  border: 1px solid var(--ink);
+}
+
+.home .plate img,
+.home .plate-end img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: none;
+  object-fit: contain;
+}
+
+.home figcaption {
+  margin-top: 0.45rem;
+  color: var(--ink-soft);
+  font-style: italic;
+}
+
+.band {
+  margin-top: 3.2rem;
+  padding-top: 1.2rem;
+  border-top: 1px solid var(--ink);
+}
+
+.band h2 {
+  margin: 0;
+  font-family: var(--font-display), Palatino, serif;
+  font-size: clamp(1.7rem, 3vw, 2.4rem);
+  font-weight: 560;
+  letter-spacing: -0.03em;
+}
+
+.useful {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.2rem 2rem;
+}
+
+.feature-list {
+  list-style: none;
+  margin: 1.2rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0;
+}
+
+.feature-list li {
+  display: grid;
+  grid-template-columns: 3.2rem 1fr;
+  gap: 0.8rem;
+  padding: 0.95rem 0;
+  border-top: 1px solid var(--line);
+}
+
+.feature-num {
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+  font-family: var(--font-display), Palatino, serif;
+  font-size: 1.15rem;
+}
+
+.feature-list h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.diagram {
+  margin-top: 1rem;
+  overflow-x: auto;
+}
+
+.arch {
+  width: 100%;
+  min-width: 40rem;
+  height: auto;
+}
+
+.arch rect {
+  fill: var(--paper);
+  stroke: var(--ink);
+  stroke-width: 1.5;
+}
+
+.arch text {
+  fill: var(--ink);
+  font-family: var(--font-display), Palatino, serif;
+  font-size: 16px;
+  text-anchor: middle;
+}
+
+.arch .diagram-tag {
+  fill: var(--ink-soft);
+  font-family: var(--font-text), Palatino, serif;
+  font-size: 12px;
+  font-style: italic;
+}
+
+.arch path {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.5;
+}
+
+.robust {
+  list-style: none;
+  margin: 1rem 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+}
+
+.robust li {
+  padding: 0.9rem 1rem 0.9rem 0;
+  border-top: 1px solid var(--line);
+}
+
+.robust strong {
+  display: block;
+  font-family: var(--font-display), Palatino, serif;
+  font-size: 1.15rem;
+  letter-spacing: -0.02em;
+}
+
+.plate-end {
+  margin-top: 1rem;
+}
+
+@media (max-width: 800px) {
+  .home .spread,
+  .useful,
+  .robust {
+    grid-template-columns: 1fr;
+  }
+
+  .home .actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

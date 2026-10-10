@@ -1,7 +1,5 @@
-import digest from "@/content/digest.json";
-import { Film } from "@/components/film";
-import type { DigestFile } from "@/lib/types";
+import { Home } from "@/components/home";
 
 export default function HomePage() {
-  return <Film digest={digest as DigestFile} />;
+  return <Home />;
 }
