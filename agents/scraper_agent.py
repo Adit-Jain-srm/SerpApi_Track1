@@ -61,6 +61,8 @@ def _get_client() -> AsyncAzureOpenAI:
             api_key=AZURE_OPENAI_KEY,
             api_version="2025-01-01-preview",
             azure_endpoint=AZURE_OPENAI_ENDPOINT,
+            timeout=45.0,
+            max_retries=0,
         )
         _deployment = AZURE_OPENAI_DEPLOYMENT or "gpt-5.3-chat"
         if not AZURE_OPENAI_DEPLOYMENT:
