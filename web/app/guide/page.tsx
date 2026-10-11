@@ -13,6 +13,7 @@ export default function GuidePage() {
     <main className="guide">
       <p className="guide-nav">
         <a href="/">Weekly digest</a>
+        <a href="/subscribe">Subscribe</a>
         <a href={GITHUB_HREF} rel="noreferrer">
           SerpApi Track 1 on GitHub
         </a>
@@ -30,7 +31,18 @@ export default function GuidePage() {
           alt="Sample Teams digest for Quibim, with title, website, audience, overview, features, pricing, and source."
         />
         <figcaption>
-          Sample of the digest shape. Not a claim this tool was found today.
+          Sample of the Teams card. Not a claim this tool was found today.
+        </figcaption>
+      </figure>
+      <figure className="guide-still">
+        <img
+          src="/slack_output_example.png"
+          width={1024}
+          height={640}
+          alt="Sample Slack digest in #tool-updates for SynthID Detector, posted by AI-Search-Buddy."
+        />
+        <figcaption>
+          The same fields in Slack, when the bot token and channel are set.
         </figcaption>
       </figure>
 
@@ -82,10 +94,21 @@ cp .env.example .env`}</code>
         <li>
           <code>SLACK_BOT_TOKEN</code> and <code>SLACK_CHANNEL_ID</code>. Leave either empty to skip Slack. Posting needs both.
         </li>
+        <li>
+          <code>SUPABASE_URL</code>, <code>SUPABASE_SECRET_KEY</code>, and <code>NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY</code>. Configures PostgreSQL subscriber delivery with Row-Level Security.
+        </li>
       </ul>
       <p>
         <code>--dry-run</code> needs <code>SERPAPI_API_KEY</code>. It does not need the Azure names, and it does not call Azure.
       </p>
+
+      <h2>Health Check & Diagnostics</h2>
+      <p>To verify all credentials, search quotas, database connection, and latency before running:</p>
+      <pre>
+        <code>{`python main.py --doctor
+# or standalone:
+python check_apis.py`}</code>
+      </pre>
 
       <h2>Run</h2>
       <p>From the repo root, with the virtual environment active:</p>
@@ -95,6 +118,12 @@ cp .env.example .env`}</code>
 
       <h2>Flags</h2>
       <dl className="guide-flags">
+        <div>
+          <dt>
+            <code>--doctor</code>
+          </dt>
+          <dd>Verify connectivity and latency for SerpApi, Azure OpenAI, Supabase, and Slack before running.</dd>
+        </div>
         <div>
           <dt>
             <code>--days</code>
@@ -121,18 +150,26 @@ cp .env.example .env`}</code>
         </div>
         <div>
           <dt>
+            <code>--skip-subscribers</code>
+          </dt>
+          <dd>Do not deliver the digest to signed-in Supabase subscribers.</dd>
+        </div>
+        <div>
+          <dt>
             <code>--max-urls</code>
           </dt>
           <dd>Cap how many compared candidates are fetched and extracted. Must be a positive integer.</dd>
         </div>
       </dl>
       <pre>
-        <code>{`python main.py --days 7
+        <code>{`python main.py --doctor
+python main.py --days 7
 python main.py --dry-run
 python main.py --skip-teams
 python main.py --skip-slack
+python main.py --skip-subscribers
 python main.py --days 7 --max-urls 3
-python main.py --days 7 --max-urls 3 --skip-teams --skip-slack`}</code>
+python main.py --days 7 --max-urls 3 --skip-teams --skip-slack --skip-subscribers`}</code>
       </pre>
 
       <h2>Edge cases</h2>
@@ -148,12 +185,13 @@ python main.py --days 7 --max-urls 3 --skip-teams --skip-slack`}</code>
           <code>--dry-run</code> prints the comparison table and stops before fetch.
         </li>
         <li>A missing Teams webhook, or <code>--skip-teams</code>, skips Teams. A missing Slack token or channel, or <code>--skip-slack</code>, skips Slack.</li>
+        <li>Supabase subscriber webhooks must be valid HTTPS. Insecure endpoints are discarded.</li>
       </ul>
 
       <h2>Tests</h2>
       <p>From the repo root, with the virtual environment active:</p>
       <pre>
-        <code>python -m pytest tests -q</code>
+        <code>python -m pytest tests -v</code>
       </pre>
     </main>
   );

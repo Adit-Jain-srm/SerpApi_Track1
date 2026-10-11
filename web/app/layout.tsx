@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 
 import "./globals.css";
@@ -27,10 +27,56 @@ const text = localFont({
   variable: "--font-text",
 });
 
+export const viewport: Viewport = {
+  themeColor: "#0e1015",
+  width: "device-width",
+  initialScale: 1,
+};
+
 export const metadata: Metadata = {
-  title: "AI Tool Discovery Agent",
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://serpapi-track1.vercel.app"),
+  title: {
+    default: "AI Tool Discovery Agent — SerpApi Hackathon Track 1",
+    template: "%s — AI Tool Discovery Agent",
+  },
   description:
-    "It searches SerpApi for newly launched AI tools and posts a card to the console, Microsoft Teams, and Slack.",
+    "Autonomous discovery pipeline for newly launched AI products. Compares SerpApi Google Web and News search engines, validates product homepages, extracts structured metadata via Azure OpenAI, and delivers to Microsoft Teams, Slack, and Supabase subscribers.",
+  keywords: [
+    "AI Tools",
+    "SerpApi",
+    "Discovery Pipeline",
+    "Azure OpenAI",
+    "Slack Webhook",
+    "Microsoft Teams Webhook",
+    "Supabase",
+    "Hackathon",
+  ],
+  authors: [{ name: "Adit Jain", url: "https://github.com/Adit-Jain-srm" }],
+  openGraph: {
+    title: "AI Tool Discovery Agent — SerpApi Hackathon Track 1",
+    description:
+      "Autonomous discovery pipeline for newly launched AI products. Compares SerpApi Google Web and News, extracts structured cards, and broadcasts to Teams and Slack.",
+    type: "website",
+    locale: "en_US",
+    images: [
+      {
+        url: "/teams_output_example.png",
+        width: 1024,
+        height: 506,
+        alt: "AI Tool Discovery Agent Weekly Digest Card",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "AI Tool Discovery Agent — SerpApi Hackathon Track 1",
+    description:
+      "Autonomous discovery pipeline for newly launched AI products with SerpApi, Azure OpenAI, Slack, Teams, and Supabase.",
+    images: ["/teams_output_example.png"],
+  },
+  icons: {
+    icon: "/icon.svg",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

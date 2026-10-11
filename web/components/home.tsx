@@ -145,8 +145,8 @@ export function Home() {
             <span>That URL is skipped. The rest of the batch continues.</span>
           </li>
           <li>
-            <strong>The page is an article.</strong>
-            <span>If it names one product site, that site is fetched. If it names several, it is a roundup and it is dropped.</span>
+            <strong>The title is already a list.</strong>
+            <span>Pages such as “10 new AI tools this week” are dropped before fetch. A single launch article is kept, and if it names one product site, that site is fetched next.</span>
           </li>
           <li>
             <strong>Slack or Teams is unset.</strong>
