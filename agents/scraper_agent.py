@@ -172,15 +172,25 @@ async def fetch_with_retries(
                         if content is not None and hasattr(content, "iter_chunked"):
                             chunks: list[bytes] = []
                             size = 0
+                            truncated = False
                             async for chunk in content.iter_chunked(64 * 1024):
-                                size += len(chunk)
-                                if size > 500_000:
-                                    raise ScrapingError(
-                                        f"Response exceeded 500000 bytes for {url}",
-                                        context={"url": url, "step": "fetch_with_retries", "reason": "size"},
-                                    )
+                                remaining = 500_000 - size
+                                if remaining <= 0:
+                                    truncated = True
+                                    break
+                                if len(chunk) > remaining:
+                                    chunks.append(chunk[:remaining])
+                                    size = 500_000
+                                    truncated = True
+                                    break
                                 chunks.append(chunk)
+                                size += len(chunk)
                             html = b"".join(chunks).decode(resp.charset or "utf-8", errors="replace")
+                            if truncated:
+                                logging.warning(
+                                    "Response for %s truncated at 500000 bytes for bounded extraction.",
+                                    url,
+                                )
                         else:
                             html = await resp.text(encoding=resp.charset or "utf-8", errors="replace")
                     break

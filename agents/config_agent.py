@@ -82,7 +82,7 @@ def setup_logging() -> None:
         format="%(asctime)s [%(levelname)s] %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
     )
-    for lib in ("aiohttp", "openai", "azure", "urllib3"):
+    for lib in ("aiohttp", "httpx", "openai", "azure", "urllib3"):
         logging.getLogger(lib).setLevel(logging.WARNING)
 
 

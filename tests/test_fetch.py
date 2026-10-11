@@ -13,6 +13,7 @@ class _Response:
         self.headers = headers or {}
         self.charset = "utf-8"
         self._body = body
+        self.content = None
 
     async def text(self, encoding: str | None = None, errors: str | None = None) -> str:
         return self._body
@@ -22,6 +23,15 @@ class _Response:
 
     async def __aexit__(self, *_args: object) -> bool:
         return False
+
+
+class _StreamingContent:
+    def __init__(self, chunks: list[bytes]) -> None:
+        self._chunks = chunks
+
+    async def iter_chunked(self, _size: int):
+        for chunk in self._chunks:
+            yield chunk
 
 
 class _Session:
@@ -77,3 +87,15 @@ def test_fetch_follows_https_with_verification(monkeypatch: pytest.MonkeyPatch) 
         "https://tools.example/final",
     ]
     assert all(ssl is True and allow_redirects is False for _url, ssl, allow_redirects in session.calls)
+
+
+def test_fetch_truncates_oversized_body_instead_of_failing(monkeypatch: pytest.MonkeyPatch) -> None:
+    _stub_gates(monkeypatch)
+    response = _Response(200)
+    response.content = _StreamingContent([b"a" * 400_000, b"b" * 200_000])
+    session = _Session([response])
+
+    html = asyncio.run(fetch_with_retries("https://tools.example/large", session))  # type: ignore[arg-type]
+
+    assert len(html.encode("utf-8")) == 500_000
+    assert html.endswith("b" * 100_000)
