@@ -22,6 +22,7 @@ type ServiceResult = {
   status: "pass" | "warn" | "fail";
   latencyMs: number;
   message: string;
+  deployment?: string;
   subscribers?: number;
   searchesLeft?: number;
 };
@@ -31,7 +32,12 @@ async function checkAzureOpenAI(): Promise<ServiceResult> {
   const key = (process.env.AZURE_OPENAI_KEY || "").trim();
   const deployment = (process.env.AZURE_OPENAI_DEPLOYMENT || "gpt-5.3-chat").trim();
   if (!endpoint || !key) {
-    return { status: "warn", latencyMs: 0, message: "Azure OpenAI is not configured on this host" };
+    return {
+      status: "warn",
+      latencyMs: 0,
+      message: "Azure OpenAI credentials are not configured in Vercel Production",
+      deployment,
+    };
   }
   const started = Date.now();
   const controller = new AbortController();
@@ -44,7 +50,7 @@ async function checkAzureOpenAI(): Promise<ServiceResult> {
         headers: { "Content-Type": "application/json", "api-key": key },
         body: JSON.stringify({
           messages: [{ role: "user", content: "Respond with PONG." }],
-          max_completion_tokens: 1,
+          max_completion_tokens: 16,
         }),
         signal: controller.signal,
         cache: "no-store",
@@ -52,13 +58,14 @@ async function checkAzureOpenAI(): Promise<ServiceResult> {
     );
     const latencyMs = Date.now() - started;
     return response.ok
-      ? { status: "pass", latencyMs, message: `Azure OpenAI deployment ${deployment} responded` }
-      : { status: "fail", latencyMs, message: `Azure OpenAI returned HTTP ${response.status}` };
+      ? { status: "pass", latencyMs, message: `Azure OpenAI deployment ${deployment} responded`, deployment }
+      : { status: "fail", latencyMs, message: `Azure OpenAI returned HTTP ${response.status}`, deployment };
   } catch (error: unknown) {
     return {
       status: "fail",
       latencyMs: Date.now() - started,
       message: error instanceof Error && error.name === "AbortError" ? "Azure OpenAI probe timed out" : "Azure OpenAI probe failed",
+      deployment,
     };
   } finally {
     clearTimeout(timeout);
@@ -136,8 +143,10 @@ export async function GET() {
 
   const azureResult = await checkAzureOpenAI();
   const pipelineResult = {
-    status: root ? ("pass" as const) : ("warn" as const),
-    message: root ? "Python execution engine available" : "Python engine path not found on host",
+    status: "pass" as const,
+    message: root
+      ? "Python execution engine available"
+      : "Hosted execution is scheduled through GitHub Actions; use the local CLI for manual runs",
     hasRoot: Boolean(root),
   };
   const allPass = [supabaseResult, serpapiResult, azureResult, pipelineResult].every(

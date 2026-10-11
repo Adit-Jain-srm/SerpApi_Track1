@@ -902,6 +902,9 @@ a {
 }
 
 .diag-panel {
+  --diag-ink: #f8fafc;
+  --diag-soft: #cbd5e1;
+  --diag-line: rgba(255, 255, 255, 0.14);
   width: 100%;
   max-width: 680px;
   max-height: 90vh;
@@ -935,13 +938,13 @@ a {
   font-size: 1.4rem;
   font-weight: 600;
   margin: 0;
-  color: var(--ink);
+  color: var(--diag-ink);
   letter-spacing: -0.02em;
 }
 
 .diag-subtitle {
   font-size: 0.88rem;
-  color: var(--ink-soft);
+  color: var(--diag-soft);
   margin: 0;
   line-height: 1.45;
 }
@@ -949,7 +952,7 @@ a {
 .diag-close {
   background: transparent;
   border: 1px solid rgba(255, 255, 255, 0.12);
-  color: var(--ink-soft);
+  color: var(--diag-soft);
   font-size: 0.95rem;
   width: 32px;
   height: 32px;
@@ -962,7 +965,7 @@ a {
 }
 
 .diag-close:hover {
-  color: var(--ink);
+  color: var(--diag-ink);
   border-color: rgba(255, 255, 255, 0.3);
   background: rgba(255, 255, 255, 0.05);
 }
@@ -980,7 +983,7 @@ a {
   justify-content: center;
   gap: 0.75rem;
   padding: 2.5rem 0;
-  color: var(--ink-soft);
+  color: var(--diag-soft);
   font-size: 0.95rem;
 }
 
@@ -1030,7 +1033,7 @@ a {
   font-family: var(--font-display), Palatino, serif;
   font-weight: 600;
   font-size: 0.95rem;
-  color: var(--ink);
+  color: var(--diag-ink);
 }
 
 .pill-status {
@@ -1063,13 +1066,13 @@ a {
 .diag-card-msg {
   font-size: 0.82rem;
   line-height: 1.4;
-  color: var(--ink-soft);
+  color: var(--diag-soft);
   margin: 0;
 }
 
 .diag-card-msg code {
   font-family: ui-monospace, "Cascadia Code", "Segoe UI Mono", monospace;
-  color: var(--ink);
+  color: var(--diag-ink);
   background: rgba(255, 255, 255, 0.07);
   padding: 0.1rem 0.3rem;
   border-radius: 3px;
@@ -1092,7 +1095,7 @@ a {
 
 .metric-label {
   font-size: 0.7rem;
-  color: var(--ink-soft);
+  color: var(--diag-soft);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -1101,7 +1104,30 @@ a {
   font-family: ui-monospace, "Cascadia Code", "Segoe UI Mono", monospace;
   font-size: 0.95rem;
   font-weight: 600;
-  color: var(--ink);
+  color: var(--diag-ink);
+}
+
+.diag-panel .control {
+  border-color: var(--diag-ink);
+  background: var(--diag-ink);
+  color: #0f1117;
+}
+
+.diag-panel .text-link {
+  color: var(--diag-ink);
+}
+
+.diag-panel .tester-hint {
+  color: var(--diag-soft);
+}
+
+.diag-panel .tester-input {
+  color: var(--diag-ink);
+}
+
+.diag-panel .tester-input::placeholder {
+  color: #94a3b8;
+  opacity: 1;
 }
 
 /* Webhook Tester Section */

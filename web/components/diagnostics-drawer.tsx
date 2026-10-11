@@ -6,6 +6,7 @@ interface ServiceReport {
   status: "pass" | "warn" | "fail";
   latencyMs?: number;
   message: string;
+  deployment?: string;
   subscribers?: number;
   searchesLeft?: number;
 }
@@ -224,7 +225,7 @@ export function DiagnosticsDrawer({
                 <div className="diag-metrics">
                   <div className="diag-metric">
                     <span className="metric-label">API Model</span>
-                    <span className="metric-val">gpt-5.3-chat</span>
+                    <span className="metric-val">{data.services.azure.deployment ?? "gpt-5.3-chat"}</span>
                   </div>
                   <div className="diag-metric">
                     <span className="metric-label">Schema</span>
@@ -245,7 +246,7 @@ export function DiagnosticsDrawer({
                 <div className="diag-metrics">
                   <div className="diag-metric">
                     <span className="metric-label">Mode</span>
-                    <span className="metric-val">Node-Python SSE</span>
+                    <span className="metric-val">GitHub Actions / CLI</span>
                   </div>
                   <div className="diag-metric">
                     <span className="metric-label">Response Time</span>
