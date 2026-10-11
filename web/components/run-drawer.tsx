@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-type Phase = "idle" | "running" | "done" | "error";
+type Phase = "idle" | "running" | "done" | "error" | "unavailable";
 
 export function RunDrawer() {
   const [phase, setPhase] = useState<Phase>("idle");
@@ -72,6 +72,7 @@ export function RunDrawer() {
     setLines([]);
     let code = 1;
     let sawDone = false;
+    let unavailable = false;
     try {
       const response = await fetch("/api/run", { method: "POST", signal: controller.signal });
       if (!response.ok || !response.body) {
@@ -96,13 +97,14 @@ export function RunDrawer() {
             .map((row) => row.slice(6))
             .join("\n");
           if (!data) continue;
-          let payload: { line?: string; done?: boolean; code?: number };
+          let payload: { line?: string; done?: boolean; code?: number; unavailable?: boolean };
           try {
             payload = JSON.parse(data) as { line?: string; done?: boolean; code?: number };
           } catch {
             continue;
           }
           if (payload.line) next.push(payload.line);
+          if (payload.unavailable) unavailable = true;
           if (payload.done) {
             sawDone = true;
             code = payload.code ?? 1;
@@ -110,7 +112,7 @@ export function RunDrawer() {
         }
         if (next.length) setLines((current) => [...current, ...next]);
       }
-      setPhase(sawDone && code === 0 ? "done" : "error");
+      setPhase(unavailable ? "unavailable" : sawDone && code === 0 ? "done" : "error");
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
       setLines((current) => [...current, "The stream closed before the run finished."]);
@@ -128,7 +130,15 @@ export function RunDrawer() {
             <h2 id="run-title" style={{ margin: 0 }}>Run Discovery Pipeline</h2>
             <span
               className={`pill-status pill-${
-                phase === "running" ? "warn" : phase === "done" ? "pass" : phase === "error" ? "fail" : "pass"
+                phase === "running"
+                  ? "warn"
+                  : phase === "done"
+                  ? "pass"
+                  : phase === "error"
+                  ? "fail"
+                  : phase === "unavailable"
+                  ? "warn"
+                  : "pass"
               }`}
             >
               {phase === "running"
@@ -137,6 +147,8 @@ export function RunDrawer() {
                 ? "COMPLETED"
                 : phase === "error"
                 ? "STOPPED"
+                : phase === "unavailable"
+                ? "UNAVAILABLE"
                 : "READY"}
             </span>
           </div>
@@ -172,6 +184,8 @@ export function RunDrawer() {
           ? "Execution finished successfully with exit code 0."
           : phase === "error"
           ? "Pipeline halted with an exit error."
+          : phase === "unavailable"
+          ? "The hosted site cannot run Python directly. Use GitHub Actions or the repository CLI to start a worker run."
           : "Ready to launch discovery sequence."}
       </p>
       <pre ref={logRef} className="run-log">

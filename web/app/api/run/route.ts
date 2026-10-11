@@ -21,14 +21,36 @@ const TIMEOUT_MS = 180_000;
 let busy = false;
 
 function repoRoot(): string | null {
-  let dir = process.cwd();
-  for (let step = 0; step < 5; step += 1) {
-    if (existsSync(join(dir, "main.py")) && existsSync(join(dir, "agents"))) return dir;
-    const parent = dirname(dir);
-    if (parent === dir) break;
-    dir = parent;
+  const starts = [process.env.PROJECT_ROOT, process.env.INIT_CWD, process.cwd()].filter(
+    (value): value is string => Boolean(value),
+  );
+  for (const start of starts) {
+    let dir = start;
+    for (let step = 0; step < 10; step += 1) {
+      if (existsSync(join(dir, "main.py")) && existsSync(join(dir, "agents"))) return dir;
+      const parent = dirname(dir);
+      if (parent === dir) break;
+      dir = parent;
+    }
   }
   return null;
+}
+
+function unavailableMessage(): string {
+  if (process.env.VERCEL === "1") {
+    return "Hosted Vercel cannot spawn the Python worker. Run the digest from GitHub Actions or the repository CLI.";
+  }
+  return "The local Python worker was not found. Start the web app from the repository workspace or set PROJECT_ROOT.";
+}
+
+function eventStream(body: string, status = 200): Response {
+  return new Response(body, {
+    status,
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache, no-transform",
+    },
+  });
 }
 
 function pythonBin(root: string): string {
@@ -60,20 +82,14 @@ export async function POST(request: Request): Promise<Response> {
 
   const root = repoRoot();
   if (!root) {
-    const body = sse({ line: "This host has the site, not the Python pipeline." }) + sse({ done: true, code: 1 });
-    return new Response(body, {
-      headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
-    });
+    return eventStream(sse({ unavailable: true, line: unavailableMessage() }) + sse({ done: true, code: 2 }));
   }
 
   const origin = request.headers.get("origin");
   if (origin) {
     try {
       if (new URL(origin).host !== request.headers.get("host")) {
-        return new Response(sse({ line: "This run only starts from the site itself." }) + sse({ done: true, code: 1 }), {
-          status: 403,
-          headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
-        });
+        return eventStream(sse({ line: "This run only starts from the site itself." }) + sse({ done: true, code: 1 }), 403);
       }
     } catch {
       return new Response(sse({ done: true, code: 1 }), { status: 400 });
