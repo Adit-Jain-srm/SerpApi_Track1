@@ -4,6 +4,7 @@ import re
 import requests
 
 from models.tool_info import ToolInfo
+from utils.url_safety import UnsafeURL, validate_url
 
 _GENERIC_FEATURES = frozenset({
     "BPO Services", "Consultation", "Talent Outsourcing",
@@ -66,7 +67,7 @@ def format_tool_for_teams(tool: ToolInfo, idx: int) -> str:
     )
 
 
-def send_tool_to_teams(tool: ToolInfo, idx: int, webhook_url: str) -> None:
+def send_tool_to_teams(tool: ToolInfo, idx: int, webhook_url: str) -> bool:
     """Post a formatted tool message to Microsoft Teams via webhook.
 
     The webhook URL is the secret. Failures log a status or exception type only.
@@ -74,19 +75,25 @@ def send_tool_to_teams(tool: ToolInfo, idx: int, webhook_url: str) -> None:
     webhook = (webhook_url or "").strip()
     if not webhook:
         logging.warning("TEAMS_WEBHOOK_URL not set. Skipping Teams notification.")
-        return
+        return False
+    try:
+        webhook = validate_url(webhook)
+    except UnsafeURL:
+        logging.error("Teams webhook rejected by outbound URL policy.")
+        return False
 
     try:
         payload = {"text": format_tool_for_teams(tool, idx)}
-        response = requests.post(webhook, json=payload, timeout=15)
+        response = requests.post(webhook, json=payload, timeout=15, allow_redirects=False)
     except requests.RequestException as exc:
         logging.error("Teams webhook request failed for tool %s: %s", idx, type(exc).__name__)
-        return
+        return False
     except Exception:
         logging.error("Teams notification failed for tool %s.", idx)
-        return
+        return False
 
     if response.status_code == 200:
         logging.info("Tool %s sent to Microsoft Teams successfully.", idx)
-    else:
-        logging.error("Failed to send tool %s to Teams: HTTP %s", idx, response.status_code)
+        return True
+    logging.error("Failed to send tool %s to Teams: HTTP %s", idx, response.status_code)
+    return False

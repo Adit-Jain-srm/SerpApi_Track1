@@ -163,11 +163,16 @@ def main(argv: list[str] | None = None, client: SearchClient | None = None) -> i
             for index, tool in enumerate(tools, 1):
                 if tool.ai_tool_annotation == "ai_tool":
                     try:
-                        send_tool_to_teams(tool, index, webhook)
-                    except Exception:
-                        logging.error("Teams notification failed for tool %s.", index)
-                        if _required_delivery("TEAMS"):
-                            delivery_failures.append("Teams")
+                        delivered = send_tool_to_teams(tool, index, webhook)
+                    except Exception as exc:
+                        delivered = False
+                        logging.error(
+                            "Teams notification failed for tool %s (%s).",
+                            index,
+                            type(exc).__name__,
+                        )
+                    if not delivered and _required_delivery("TEAMS"):
+                        delivery_failures.append("Teams")
         elif _required_delivery("TEAMS"):
             delivery_failures.append("Teams")
     if settings.skip_slack:
@@ -185,11 +190,16 @@ def main(argv: list[str] | None = None, client: SearchClient | None = None) -> i
             for index, tool in enumerate(tools, 1):
                 if tool.ai_tool_annotation == "ai_tool":
                     try:
-                        send_tool_to_slack(tool, index, slack_token, slack_channel)
-                    except Exception:
-                        logging.error("Slack notification failed for tool %s.", index)
-                        if _required_delivery("SLACK"):
-                            delivery_failures.append("Slack")
+                        delivered = send_tool_to_slack(tool, index, slack_token, slack_channel)
+                    except Exception as exc:
+                        delivered = False
+                        logging.error(
+                            "Slack notification failed for tool %s (%s).",
+                            index,
+                            type(exc).__name__,
+                        )
+                    if not delivered and _required_delivery("SLACK"):
+                        delivery_failures.append("Slack")
     if settings.skip_subscribers:
         logging.info("Skipping subscriber delivery.")
         if _required_delivery("SUBSCRIBER"):

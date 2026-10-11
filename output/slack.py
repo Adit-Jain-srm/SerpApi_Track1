@@ -98,13 +98,13 @@ def format_tool_for_slack(tool: ToolInfo, idx: int) -> str:
     )
 
 
-def send_tool_to_slack(tool: ToolInfo, idx: int, bot_token: str, channel: str) -> None:
+def send_tool_to_slack(tool: ToolInfo, idx: int, bot_token: str, channel: str) -> bool:
     """Post one tool digest. Missing credentials or an API error is logged, not raised."""
     token = (bot_token or "").strip()
     channel_id = (channel or "").strip()
     if not token or not channel_id:
         logging.warning("SLACK_BOT_TOKEN or SLACK_CHANNEL_ID not set. Skipping Slack notification.")
-        return
+        return False
 
     try:
         response = requests.post(
@@ -115,10 +115,10 @@ def send_tool_to_slack(tool: ToolInfo, idx: int, bot_token: str, channel: str) -
         )
     except requests.RequestException as exc:
         logging.error("Slack post failed for tool %s: %s", idx, _public_detail(exc))
-        return
+        return False
     except Exception as exc:
         logging.error("Slack notification failed for tool %s: %s", idx, type(exc).__name__)
-        return
+        return False
 
     error = ""
     try:
@@ -130,10 +130,11 @@ def send_tool_to_slack(tool: ToolInfo, idx: int, bot_token: str, channel: str) -
 
     if response.status_code == 200 and isinstance(body, dict) and body.get("ok") is True:
         logging.info("Tool %s sent to Slack successfully.", idx)
-        return
+        return True
 
     logging.error(
         "Failed to send tool %s to Slack: %s",
         idx,
         error or f"HTTP {response.status_code}",
     )
+    return False

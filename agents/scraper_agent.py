@@ -28,7 +28,7 @@ from models.tool_info import ToolInfo
 from utils.blacklist import PersistentBlacklist
 from utils.error_handling import ScrapingError, ExtractionError
 from utils.prompt_loader import load_prompt, is_allowed_by_robots
-from utils.url_safety import UnsafeURL, validate_url_async
+from utils.url_safety import UnsafeURL, validate_url, validate_url_async
 
 _MAX_CACHE_SIZE = 1000
 _html_fetch_cache: dict[str, str] = {}
@@ -533,6 +533,22 @@ def _as_str_list(value: object) -> list[str]:
     return items
 
 
+def _safe_model_url(value: object, fallback: str, html: str = "") -> str:
+    """Accept only syntactically safe HTTPS URLs returned by the model."""
+    if not isinstance(value, str) or not value.strip():
+        return fallback
+    try:
+        candidate = validate_url(value.strip(), resolve=False)
+        hostname = (urlparse(candidate).hostname or "").lower()
+        if candidate != fallback and hostname and hostname not in html.lower():
+            logging.warning("Ignoring model URL not evidenced by the source page.")
+            return fallback
+        return candidate
+    except UnsafeURL:
+        logging.warning("Ignoring unsafe model URL and using the source URL instead.")
+        return fallback
+
+
 async def extract_tool_info_with_llm(html: str, url: str) -> ToolInfo:
     """
     Use the configured Azure deployment to extract all relevant tool info fields from raw HTML and URL in a single call.
@@ -562,8 +578,8 @@ async def extract_tool_info_with_llm(html: str, url: str) -> ToolInfo:
 
         data = _parse_llm_json(response.choices[0].message.content)
         if data:
-            website = _as_text(data.get("Website"), url)
-            source = _as_text(data.get("Source URL"), url)
+            website = _safe_model_url(data.get("Website"), url, html)
+            source = _safe_model_url(data.get("Source URL"), url, html)
             title = _as_text(data.get("Title"))
             annotation = _as_text(data.get("ai_tool_annotation"), "not_ai_tool")
             logging.info(

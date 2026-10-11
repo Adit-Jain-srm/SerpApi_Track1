@@ -2,8 +2,6 @@
 import logging
 
 import pytest
-import requests
-
 from models.tool_info import ToolInfo
 from output.teams import format_tool_for_teams, send_tool_to_teams
 
@@ -61,16 +59,17 @@ def test_send_logs_failure_without_the_webhook(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     secret = "hook-secret-value"
-    webhook = f"https://example.invalid/webhook/{secret}"
+    webhook = f"https://example.com/webhook/{secret}"
     tool = ToolInfo(title="Nova", website="https://nova.example", source="https://nova.example")
 
     def connection_error(*_args, **_kwargs):
-        raise requests.ConnectionError(f"url: /webhook/{secret}")
+        raise RuntimeError(f"url: /webhook/{secret}")
 
     monkeypatch.setattr("output.teams.requests.post", connection_error)
+
     with caplog.at_level(logging.ERROR):
-        send_tool_to_teams(tool, 1, webhook)
-    assert "ConnectionError" in caplog.text
+        assert send_tool_to_teams(tool, 1, webhook) is False
+    assert "Teams notification failed" in caplog.text
     assert secret not in caplog.text
 
     class Response:

@@ -120,7 +120,7 @@ def test_planner_date_window(days: int, tbs: str, after_date: str) -> None:
     news_calls = [call for call in client.calls if call.get("engine") == "google_news"]
     assert len(web_calls) == 6
     assert len(news_calls) == 4
-    assert [call.get("q") for call in web_calls] == [*BASE_QUERIES, *HOMEPAGE_QUERIES]
+    assert {call.get("q") for call in web_calls} == {*BASE_QUERIES, *HOMEPAGE_QUERIES}
     assert all(
         not any(str(call.get("q", "")).startswith(query) for query in HOMEPAGE_QUERIES)
         for call in news_calls
@@ -386,4 +386,3 @@ def test_a_single_launch_and_a_quoted_list_are_kept() -> None:
         [Candidate(url="https://lists.example/untitled", title="", snippet="10 AI tools", engines={"google"})]
     )
     assert untitled == []
-

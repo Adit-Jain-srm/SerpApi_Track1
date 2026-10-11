@@ -7,7 +7,9 @@ pipeline_agent.py: Orchestrates search, comparison, LLM extraction, deduplicatio
 import asyncio
 import logging
 import random
+import re
 from datetime import datetime, timedelta, timezone
+from urllib.parse import urlparse
 
 import aiohttp
 from openai import RateLimitError
@@ -24,6 +26,7 @@ from agents.scraper_agent import (
 from agents.search_agent import SearchClient, format_comparison_table, normalize_url, run_search
 from config.constants import BATCH_SIZE, LLM_CONCURRENCY_LIMIT, SEARCH_DAYS
 from models.tool_info import ToolInfo
+from utils.url_safety import UnsafeURL, validate_url
 
 
 class PipelineContext:
@@ -132,16 +135,41 @@ async def extract_all_tool_info(
 
 
 def _deduplicate(tools: list[ToolInfo]) -> list[ToolInfo]:
-    """Deduplicate tools by (website, title) pair."""
-    seen: set[tuple[str, str]] = set()
+    """Collapse repeated discoveries of the same product deterministically."""
+    seen: dict[str, ToolInfo] = {}
     deduped: list[ToolInfo] = []
+
+    def identity(tool: ToolInfo) -> str:
+        words = re.findall(r"[a-z0-9]+", (tool.title or "").lower())
+        return " ".join(word for word in words if word not in {"ai", "tool", "app", "platform"})
+
+    def quality(tool: ToolInfo) -> tuple[int, int, int]:
+        domain = (urlparse(tool.website or "").hostname or "").lower()
+        official = int(not any(marker in domain for marker in ("blog", "news", "directory", "tools")))
+        return (
+            int(tool.ai_tool_annotation == "ai_tool"),
+            official,
+            int(bool(tool.summary and tool.features)),
+        )
+
     for t in tools:
-        website = t.website if isinstance(t.website, str) else ""
-        title = t.title if isinstance(t.title, str) else ""
-        key = (website.lower(), title.lower())
-        if key not in seen:
-            seen.add(key)
+        key = identity(t) or (t.website or "").lower()
+        key_tokens = set(key.split())
+        if len(key_tokens) >= 2:
+            for existing_key in seen:
+                existing_tokens = set(existing_key.split())
+                if len(existing_tokens) >= 2:
+                    overlap = len(key_tokens & existing_tokens) / min(len(key_tokens), len(existing_tokens))
+                    if overlap >= 0.8:
+                        key = existing_key
+                        break
+        previous = seen.get(key)
+        if previous is None:
+            seen[key] = t
             deduped.append(t)
+        elif quality(t) > quality(previous):
+            deduped[deduped.index(previous)] = t
+            seen[key] = t
     return deduped
 
 

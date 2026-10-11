@@ -2,6 +2,7 @@
 
 import logging
 import os
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Callable
 from urllib.parse import urlparse
@@ -28,8 +29,18 @@ def _https(url: object) -> str | None:
 
 
 def _post(url: str, payload: dict[str, str]) -> int:
-    response = requests.post(url, json=payload, timeout=15, allow_redirects=False)
-    return response.status_code
+    for attempt in range(3):
+        try:
+            response = requests.post(url, json=payload, timeout=15, allow_redirects=False)
+        except requests.RequestException:
+            if attempt == 2:
+                raise
+            time.sleep(0.5 * (2**attempt))
+            continue
+        if response.status_code not in {429, 500, 502, 503, 504} or attempt == 2:
+            return response.status_code
+        time.sleep(0.5 * (2**attempt))
+    return 599
 
 
 def _load_rows(base: str, secret: str) -> list[dict]:

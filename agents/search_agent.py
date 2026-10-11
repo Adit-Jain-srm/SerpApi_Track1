@@ -316,30 +316,33 @@ def _build_tools(days: int, client: SearchClient | None):
 async def _run_tool(
     tool: Any, queries: list[str], engine: str
 ) -> tuple[list[dict[str, Any]], list[str], bool]:
-    """Call one engine for every query. One failure does not cancel the rest."""
+    """Call one engine's queries concurrently while preserving query order."""
+    semaphore = asyncio.Semaphore(3)
+
+    async def run_query(query: str) -> tuple[str, dict[str, Any] | None, str | None]:
+        async with semaphore:
+            try:
+                raw = await asyncio.to_thread(tool, query=query)
+            except SerpApiSearchError as exc:
+                return query, None, f"SerpApiSearchError for {engine} query {query!r}: {exc}"
+            try:
+                payload = json.loads(raw)
+            except json.JSONDecodeError as exc:
+                return query, None, f"Invalid JSON for {engine} query {query!r}: {exc}"
+            if not isinstance(payload, dict):
+                return query, None, f"Invalid JSON for {engine} query {query!r}: expected an object"
+            return query, payload, None
+
+    results = await asyncio.gather(*(run_query(query) for query in queries))
     payloads: list[dict[str, Any]] = []
     errors: list[str] = []
-    for query in queries:
-        try:
-            raw = await asyncio.to_thread(tool, query=query)
-        except SerpApiSearchError as exc:
-            message = f"SerpApiSearchError for {engine} query {query!r}: {exc}"
-            logging.error(message)
-            errors.append(message)
+    for query, payload, error in results:
+        if error:
+            logging.error(error)
+            errors.append(error)
             continue
-        try:
-            payload = json.loads(raw)
-        except json.JSONDecodeError as exc:
-            message = f"Invalid JSON for {engine} query {query!r}: {exc}"
-            logging.error(message)
-            errors.append(message)
-            continue
-        if not isinstance(payload, dict):
-            message = f"Invalid JSON for {engine} query {query!r}: expected an object"
-            logging.error(message)
-            errors.append(message)
-            continue
-        payloads.append(payload)
+        if payload is not None:
+            payloads.append(payload)
     return payloads, errors, bool(payloads)
 
 
