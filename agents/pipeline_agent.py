@@ -225,6 +225,7 @@ def _print_summary_report(
     print(f"Successful fetches:   {num_success}")
     print(f"Failed fetches:       {num_fail}")
     print(f"Skipped (robots/empty): {num_total - num_success - num_fail}")
+    print(f"Run status:            {'PARTIAL' if error_list else 'SUCCESS'}")
 
 
 def _select_tools(found: list[ToolInfo], followed: list[ToolInfo]) -> list[ToolInfo]:
