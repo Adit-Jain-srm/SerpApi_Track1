@@ -18,16 +18,17 @@ export function PaperPress() {
     let dead = false;
     let frame = 0;
     let dispose = () => {};
-    const shouldRun = () =>
-      !dead && !reduced.matches && !narrow.matches && document.visibilityState === "visible" && canvas.clientWidth > 0;
+    const shouldRender = () =>
+      !dead && !narrow.matches && document.visibilityState === "visible" && canvas.clientWidth > 0;
 
     void import("three").then((THREE) => {
       if (dead) return;
       const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+      canvas.classList.add("has-webgl");
       renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
       const scene = new THREE.Scene();
       const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 20);
-      camera.position.set(0.2, 0.85, 4.4);
+      camera.position.set(0.2, 0.78, 3.45);
 
       const key = new THREE.DirectionalLight(0xfff3e4, 2.4);
       key.position.set(2.2, 3.2, 3.4);
@@ -69,22 +70,26 @@ export function PaperPress() {
 
       const loop = (time: number) => {
         frame = 0;
-        if (!shouldRun()) return;
+        if (!shouldRender()) return;
         const host = canvas.closest(".stage-hero");
         const press = host ? Number.parseFloat(getComputedStyle(host).getPropertyValue("--press") || "0") || 0 : 0;
-        group.rotation.y = time * 0.00032 + Math.sin(time * 0.0004) * 0.12;
-        group.rotation.x = 0.42 - press * 0.28;
+        group.rotation.y = time * 0.0002 + Math.sin(time * 0.00055) * 0.2;
+        group.rotation.x = 0.34 - press * 0.28 + Math.sin(time * 0.0007) * 0.025;
+        group.rotation.z = Math.sin(time * 0.00045) * 0.018;
         sheets.forEach((sheet, index) => {
-          const spread = (index - 2.5) * 0.07 * (1 - press);
-          sheet.rotation.z = spread;
+          const spread = (index - 2.5) * 0.09 * (1 - press);
+          const flutter = Math.sin(time * 0.0011 + index * 0.7) * 0.012 * (1 - press);
+          sheet.rotation.z = spread + flutter;
           sheet.position.x = spread * 0.8;
+          sheet.position.z = Math.sin(time * 0.0008 + index) * 0.025 * (1 - press);
         });
-        rule.position.y = 0.27 + Math.sin(time * 0.0015) * 0.01 * (1 - press);
+        rule.position.y = 0.27 + Math.sin(time * 0.0015) * 0.018 * (1 - press);
         renderer.render(scene, camera);
+        if (reduced.matches) return;
         frame = window.requestAnimationFrame(loop);
       };
       const arm = () => {
-        if (!shouldRun()) {
+        if (!shouldRender()) {
           if (frame) window.cancelAnimationFrame(frame);
           frame = 0;
           return;
@@ -118,5 +123,18 @@ export function PaperPress() {
     };
   }, []);
 
-  return <canvas ref={canvasRef} className="paper-press" aria-hidden="true" />;
+  return (
+    <div className="paper-press-stage" aria-hidden="true">
+      <div className="press-stamp press-stamp-top">SEARCH INDEX / 07 DAYS</div>
+      <div className="press-stamp press-stamp-bottom">SORT → EXTRACT → DELIVER</div>
+      <span className="press-orbit press-orbit-one" />
+      <span className="press-orbit press-orbit-two" />
+      <span className="press-scanline" />
+      <canvas ref={canvasRef} className="paper-press" />
+      <div className="press-book-fallback">
+        <span className="press-book-pages" />
+        <span className="press-book-cover">AI<br />TOOLS</span>
+      </div>
+    </div>
+  );
 }

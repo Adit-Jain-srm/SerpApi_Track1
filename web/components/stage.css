@@ -304,12 +304,14 @@
 
 .press-figure {
   margin: 0;
+  position: relative;
 }
 
 .press-figure figcaption {
-  margin-top: 0.2rem;
+  margin: 0.55rem 0 0;
   color: var(--ink-soft);
   font-style: italic;
+  max-width: 46ch;
 }
 
 .hero-object {
@@ -322,7 +324,167 @@
 .paper-press {
   display: block;
   width: 100%;
-  height: 168px;
+  height: 244px;
+  position: relative;
+  z-index: 1;
+}
+
+.press-book-fallback {
+  position: absolute;
+  z-index: 1;
+  left: 50%;
+  top: 50%;
+  width: 12rem;
+  height: 8.2rem;
+  transform: translate(-50%, -48%) rotate(-8deg) skewY(4deg);
+  filter: drop-shadow(0 1.2rem 0.8rem oklch(0.22 0.024 55 / 0.18));
+  transition: opacity 0.3s ease;
+}
+
+.press-book-pages,
+.press-book-cover {
+  position: absolute;
+  inset: 0;
+  display: block;
+}
+
+.press-book-pages {
+  left: 0.85rem;
+  top: 0.6rem;
+  background: repeating-linear-gradient(
+    to bottom,
+    oklch(0.98 0.01 90) 0,
+    oklch(0.98 0.01 90) 2px,
+    oklch(0.78 0.02 80) 3px,
+    oklch(0.98 0.01 90) 5px
+  );
+  border: 1px solid oklch(0.22 0.024 55 / 0.5);
+  transform: skewY(-4deg);
+}
+
+.press-book-cover {
+  padding: 1.05rem 1.15rem;
+  background: var(--accent);
+  color: var(--paper);
+  border: 1px solid oklch(0.22 0.024 55 / 0.55);
+  box-shadow: inset -0.5rem 0 oklch(0.22 0.024 55 / 0.12);
+  font-family: var(--font-display), Palatino, serif;
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 0.92;
+  transform: translate(-0.1rem, -0.1rem) skewY(-4deg);
+}
+
+.paper-press-stage {
+  position: relative;
+  min-height: 244px;
+  overflow: hidden;
+  border: 1px solid var(--ink);
+  background:
+    radial-gradient(circle at 50% 48%, oklch(0.94 0.02 88 / 0.9), transparent 46%),
+    linear-gradient(135deg, oklch(0.93 0.018 88), oklch(0.86 0.025 75));
+}
+
+.paper-press-stage::before,
+.paper-press-stage::after {
+  content: "";
+  position: absolute;
+  inset: 0.7rem;
+  border: 1px solid oklch(0.22 0.024 55 / 0.16);
+  pointer-events: none;
+}
+
+.paper-press-stage::after {
+  inset: auto 0.7rem 0.7rem;
+  height: 1px;
+  border: 0;
+  background: var(--accent);
+  opacity: 0.7;
+}
+
+.press-stamp {
+  position: absolute;
+  z-index: 2;
+  color: var(--ink-soft);
+  font-family: ui-monospace, "Cascadia Mono", "Segoe UI Mono", monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  line-height: 1;
+}
+
+.press-stamp-top {
+  top: 0.95rem;
+  left: 1rem;
+}
+
+.press-stamp-bottom {
+  right: 1rem;
+  bottom: 0.95rem;
+  color: var(--accent);
+}
+
+.press-orbit {
+  position: absolute;
+  z-index: 0;
+  left: 50%;
+  top: 50%;
+  width: 15rem;
+  height: 8rem;
+  border: 1px solid oklch(0.22 0.024 55 / 0.22);
+  border-radius: 50%;
+  transform: translate(-50%, -50%) rotate(-16deg);
+  pointer-events: none;
+}
+
+.press-orbit-one {
+  animation: pressOrbit 8s ease-in-out infinite;
+}
+
+.press-orbit-two {
+  width: 11rem;
+  height: 13rem;
+  transform: translate(-50%, -50%) rotate(58deg);
+  border-color: oklch(0.5 0.18 28 / 0.24);
+  animation: pressOrbitAlt 11s ease-in-out infinite;
+}
+
+.press-scanline {
+  position: absolute;
+  z-index: 2;
+  left: 8%;
+  right: 8%;
+  top: 1.3rem;
+  height: 1px;
+  background: var(--accent);
+  opacity: 0.45;
+  box-shadow: 0 0 12px oklch(0.5 0.18 28 / 0.5);
+  animation: pressScan 5.5s var(--ease) infinite;
+  pointer-events: none;
+}
+
+@keyframes pressOrbit {
+  0%, 100% { transform: translate(-50%, -50%) rotate(-16deg) scale(0.96); }
+  50% { transform: translate(-50%, -50%) rotate(-7deg) scale(1.04); }
+}
+
+@keyframes pressOrbitAlt {
+  0%, 100% { transform: translate(-50%, -50%) rotate(58deg) scale(1); }
+  50% { transform: translate(-50%, -50%) rotate(70deg) scale(0.94); }
+}
+
+@keyframes pressScan {
+  0%, 12% { transform: translateY(0); opacity: 0; }
+  25%, 70% { opacity: 0.45; }
+  88%, 100% { transform: translateY(205px); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .press-orbit-one,
+  .press-orbit-two,
+  .press-scanline {
+    animation: none;
+  }
 }
 
 .run-drawer {
@@ -543,10 +705,13 @@
   .stage-wave,
   .burst,
   .cipher-plate,
-  .cursor,
-  .paper-press {
+  .cursor {
     animation: none;
     display: none;
+  }
+
+  .paper-press {
+    animation: none;
   }
 
   .stage-wrap,
