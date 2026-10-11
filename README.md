@@ -2,13 +2,11 @@
 
 A weekly digest of newly launched AI tools for a team that cannot watch the open web. It plans a date window, searches SerpApi web and news, compares the hits, and delivers a short structured list in the console, in Microsoft Teams, or in Slack.
 
-**Adit Jain**
-
 This project was built for the SerpApi India Hackathon 2026. This repository is the Track 01 submission. Search uses [`serpapi-search-tools`](https://serpapi.github.io/serpapi-search-tools-python/): Google web with `tbs`, Google News with `after:`, then compare, HTTPS fetch, and Azure extraction. The console prints the digest. Teams and Slack are optional. The CLI, tests, Slack output, and public site are part of this submission.
 
 Clone URL: `https://github.com/Adit-Jain-srm/SerpApi_Track1`
 
-Live site: [https://serpapi-track1.vercel.app](https://serpapi-track1.vercel.app). The install and command guide is [https://serpapi-track1.vercel.app/guide](https://serpapi-track1.vercel.app/guide).
+Live site: [https://serpapi-track1.vercel.app](https://serpapi-track1.vercel.app). The install and command guide is [https://serpapi-track1.vercel.app/guide](https://serpapi-track1.vercel.app/guide). Sign in and save a Teams or Slack incoming webhook at [/subscribe](https://serpapi-track1.vercel.app/subscribe). A normal `python main.py` posts each card to those webhooks. `--skip-subscribers` and the on-site demo do not.
 
 ## Who it is for
 
@@ -52,8 +50,8 @@ flowchart TD
 
 1. **Plan.** `--days` sets the window (default 7). When the flag is omitted, `SEARCH_DAYS` overrides that default. Web search is pinned to `google` with `tbs=qdr:d{N}` (`tbs=qdr:d7` for seven days). Web queries do not get an `after:` suffix. News search uses `google_news` and puts `after:YYYY-MM-DD` in the query, from the UTC start of the window. News does not receive `tbs`.
 2. **Search.** Four announcement queries (just launched, now available, public beta, open-source launch) run through `web_search` and `news_search`. Two homepage queries (we launched, intitle:introducing) run through web search only, inside the same date window. That is ten searches per run. Web links come from `organic_results[].link`. News links come from `news_results[].link`. If one engine fails, the run continues with the other. If both fail, the process exits non-zero.
-3. **Compare.** Each candidate keeps its URL, title, snippet, published time, and which engines produced it. URLs are normalized, aggregator domains are dropped, and duplicates merge. When web and news disagree on the date, the news date is kept. `--max-urls` caps how many candidates continue.
-4. **Act.** Pages are fetched over TLS. When an article names one product homepage, that homepage is fetched next (at most 12 extra pages). A listicle that names several products is not followed. Azure OpenAI extracts a structured tool record from the product page. The deployment name is `AZURE_OPENAI_DEPLOYMENT`. When that variable is empty the client defaults to `gpt-5.3-chat`. The call sends `max_completion_tokens` and temperature `1`, which this chat API accepts. The console prints the summary. Teams receives a message when `TEAMS_WEBHOOK_URL` is set and `--skip-teams` was not passed. Slack receives a message when `SLACK_BOT_TOKEN` and `SLACK_CHANNEL_ID` are set and `--skip-slack` was not passed. `--dry-run` prints the comparison table and stops before fetch. It does not call Azure or post to Teams or Slack. A sample of the Teams shape is `assets/teams_output_example.png`.
+3. **Compare.** Each candidate keeps its URL, title, snippet, published time, and which engines produced it. URLs are normalized, aggregator domains are dropped, and duplicates merge. Titles that are already a list ("10 new AI tools", "top 20", "roundup") are dropped before any fetch. What remains is ranked so a product homepage comes before an article. When web and news disagree on the date, the news date is kept. `--max-urls` applies after that rank.
+4. **Act.** Pages are fetched over TLS. When an article names one product homepage, that homepage is fetched next (at most 12 extra pages). A font file, an image, or a host such as Cloudflare does not count as a second product. A listicle that names several products is not followed. Azure OpenAI extracts a structured tool record from the product page. The deployment name is `AZURE_OPENAI_DEPLOYMENT`. When that variable is empty the client defaults to `gpt-5.3-chat`. The call sends `max_completion_tokens` and temperature `1`, which this chat API accepts. The console prints the summary. Teams receives a message when `TEAMS_WEBHOOK_URL` is set and `--skip-teams` was not passed. Slack receives a message when `SLACK_BOT_TOKEN` and `SLACK_CHANNEL_ID` are set and `--skip-slack` was not passed. `--dry-run` prints the comparison table and stops before fetch. It does not call Azure or post to Teams or Slack. A sample of the Teams shape is `assets/teams_output_example.png`.
 
 Key setup, the interactive MCP client, and the hackathon notes:
 
@@ -123,7 +121,7 @@ python main.py --days 7 --max-urls 3
 | `--dry-run` | Print the comparison table. Do not fetch, call Azure, or post to Teams or Slack. |
 | `--skip-teams` | Skip the webhook. Still print the console summary. |
 | `--skip-slack` | Skip Slack even when the bot token and channel ID are set. Still print the console summary. |
-| `--max-urls` | Cap how many compared candidates are fetched and extracted. Must be a positive integer. |
+| `--max-urls` | Cap how many compared candidates are fetched and extracted, after roundups are dropped and homepages are ranked first. Must be a positive integer. |
 
 `--dry-run` needs `SERPAPI_API_KEY`. It does not need the Azure variables, and it does not call Azure.
 
@@ -149,7 +147,7 @@ From the repo root, with the virtual environment active:
 python -m pytest tests -q
 ```
 
-The suite stays offline: a fake search client stands in for SerpApi, and the tests do not call Azure, Teams, or Slack. They cover the date plan, candidate merge, recency, dry-run, invalid `--days` and `--max-urls`, Windows console text, the Azure chat parameter names, and Teams and Slack formatting.
+The suite stays offline: a fake search client stands in for SerpApi, and the tests do not call Azure, Teams, or Slack. They cover the date plan, candidate merge, roundup drops, homepage ranking, recency, dry-run, invalid `--days` and `--max-urls`, Windows console text, the Azure chat parameter names, and Teams and Slack formatting.
 
 ## Sample Teams message
 

@@ -2,6 +2,8 @@
 .env
 .env.*
 !.env.example
+.supabase-db-password
+.supabase-keys.json
 
 # Public site
 web/node_modules
@@ -27,6 +29,8 @@ env/
 *.swp
 *.swo
 *~
+.agents/
+.cursor/
 
 # OS files
 Thumbs.db
