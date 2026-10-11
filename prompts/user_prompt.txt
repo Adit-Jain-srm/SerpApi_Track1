@@ -33,4 +33,6 @@ Remember: Only output the JSON object, no markdown, no explanations, no code blo
 URL: {url}
 
 HTML:
-{html_trunc} 
+<<<PAGE_CONTENT>>>
+{html_trunc}
+<<<END_PAGE_CONTENT>>>

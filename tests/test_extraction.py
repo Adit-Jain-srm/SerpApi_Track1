@@ -4,7 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from agents.scraper_agent import extract_tool_info_with_llm
+from agents.scraper_agent import apply_article_website, extract_tool_info_with_llm
+from models.tool_info import ToolInfo
 from utils.prompt_loader import load_prompt
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures"
@@ -236,6 +237,91 @@ def test_listicle_fixture_is_not_one_product(monkeypatch: pytest.MonkeyPatch) ->
     assert "alpha.example" not in tool.website
     assert "beta.example" not in tool.website
     assert "gamma.example" not in tool.website
+
+
+def test_asset_and_infrastructure_links_do_not_hide_the_product(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A font, an image, and a Cloudflare footer are not a second product."""
+    page = "https://blog.example.com/posts/nova-launch"
+    html = (
+        "<article>"
+        '<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter">'
+        '<img src="https://cdn.example/hero.png" alt="">'
+        '<a href="https://nova.example/">Nova</a>'
+        '<a href="https://www.cloudflare.com/">Protected</a>'
+        "<p>Docs live at https://nova.example/docs.</p>"
+        "</article>"
+    )
+    _patch_llm(
+        monkeypatch,
+        (
+            '{"Title":"Nova","Website":"' + page + '",'
+            '"Source URL":"' + page + '","ai_tool_annotation":"not_ai_tool"}'
+        ),
+    )
+
+    tool = asyncio.run(extract_tool_info_with_llm(html, page))
+
+    assert tool.website == "https://nova.example/"
+    assert tool.ai_tool_annotation == "not_ai_tool"
+
+
+def test_publisher_homepage_is_not_a_second_product() -> None:
+    """The magazine's own homepage does not cancel the one tool the article names."""
+    page = "https://magazine.example/blog/nova-launch"
+    html = (
+        "<article>"
+        '<a href="https://magazine.example/">Magazine</a>'
+        "<noscript><img src=\"https://pixel.example/t\"></noscript>"
+        '<a href="https://nova.example/">Nova'
+        "</article>"
+    )
+    tool = apply_article_website(
+        ToolInfo(title="Nova", website=page, source=page, ai_tool_annotation="ai_tool"),
+        html,
+        page,
+    )
+
+    assert tool.website == "https://nova.example/"
+    assert tool.ai_tool_annotation == "ai_tool"
+
+
+def test_same_site_launch_post_uses_the_homepage() -> None:
+    """A blog on the product's own site, with no other company linked, points at that site."""
+    page = "https://nova.example/blog/we-launched"
+    html = (
+        "<article>"
+        '<a href="https://nova.example/">Home</a>'
+        '<a href="https://nova.example/pricing">Pricing</a>'
+        "</article>"
+    )
+    tool = apply_article_website(
+        ToolInfo(title="Nova", website=page, source=page, ai_tool_annotation="ai_tool"),
+        html,
+        page,
+    )
+
+    assert tool.website == "https://nova.example/"
+
+
+def test_two_country_code_sites_are_not_one_product() -> None:
+    """alpha.co.uk and beta.co.uk are different sites, not one domain named co.uk."""
+    page = "https://magazine.example/blog/uk-tools"
+    html = (
+        "<article>"
+        '<a href="https://alpha.co.uk/">Alpha</a>'
+        '<a href="https://beta.co.uk/">Beta</a>'
+        "</article>"
+    )
+    tool = apply_article_website(
+        ToolInfo(title="UK tools", website="https://alpha.co.uk/", source=page, ai_tool_annotation="ai_tool"),
+        html,
+        page,
+    )
+
+    assert tool.website == page
+    assert tool.ai_tool_annotation == "not_ai_tool"
 
 
 def test_product_homepage_is_not_rewritten(monkeypatch: pytest.MonkeyPatch) -> None:

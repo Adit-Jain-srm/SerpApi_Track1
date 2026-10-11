@@ -21,6 +21,7 @@ from agents.pipeline_agent import run_pipeline
 from agents.search_agent import SearchClient, SearchFailed
 from output.console import print_summary
 from output.slack import send_tool_to_slack
+from output.subscribers import notify_subscribers
 from output.teams import send_tool_to_teams
 
 
@@ -71,10 +72,21 @@ def build_parser() -> argparse.ArgumentParser:
         help="Print the console summary and skip Slack, even when the bot token and channel ID are set.",
     )
     parser.add_argument(
+        "--skip-subscribers",
+        action="store_true",
+        help="Do not post the digest to signed-in Teams or Slack webhook subscriptions.",
+    )
+    parser.add_argument(
         "--max-urls",
         type=int,
         default=None,
         help="Maximum candidates to keep after comparison.",
+    )
+    parser.add_argument(
+        "--doctor",
+        "--check-apis",
+        action="store_true",
+        help="Run comprehensive health and connectivity checks on all APIs and database.",
     )
     return parser
 
@@ -84,6 +96,8 @@ def _settings_from_args(args: argparse.Namespace) -> Settings:
     updates: dict[str, Any] = {
         "dry_run": args.dry_run,
         "skip_teams": args.skip_teams,
+        "skip_slack": args.skip_slack,
+        "skip_subscribers": args.skip_subscribers,
     }
     if args.days is not None:
         updates["search_days"] = args.days
@@ -98,6 +112,11 @@ def main(argv: list[str] | None = None, client: SearchClient | None = None) -> i
     setup_logging()
     parser = build_parser()
     args = parser.parse_args(argv)
+
+    if args.doctor:
+        from check_apis import print_report, run_all_checks
+        return print_report(run_all_checks())
+
     if args.days is not None and args.days < 1:
         parser.error("--days must be a positive integer")
     if args.max_urls is not None and args.max_urls < 1:
@@ -135,7 +154,7 @@ def main(argv: list[str] | None = None, client: SearchClient | None = None) -> i
                         send_tool_to_teams(tool, index, webhook)
                     except Exception:
                         logging.error("Teams notification failed for tool %s.", index)
-    if args.skip_slack:
+    if settings.skip_slack:
         logging.info("Skipping Slack notification.")
     else:
         slack_token = (os.environ.get("SLACK_BOT_TOKEN") or "").strip()
@@ -149,6 +168,14 @@ def main(argv: list[str] | None = None, client: SearchClient | None = None) -> i
                         send_tool_to_slack(tool, index, slack_token, slack_channel)
                     except Exception:
                         logging.error("Slack notification failed for tool %s.", index)
+    if settings.skip_subscribers:
+        logging.info("Skipping subscriber delivery.")
+    else:
+        try:
+            subscriber_stats = notify_subscribers(tools)
+            logging.info("Subscriber delivery summary: %s", subscriber_stats)
+        except Exception:
+            logging.error("Subscriber delivery failed.")
     return 0
 
 

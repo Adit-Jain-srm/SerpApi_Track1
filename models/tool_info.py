@@ -1,5 +1,6 @@
+from __future__ import annotations
+
 from dataclasses import dataclass, field
-from typing import Optional, List
 
 
 @dataclass
@@ -8,12 +9,13 @@ class ToolInfo:
 
     title: str
     website: str
-    summary: Optional[str] = None
-    features: List[str] = field(default_factory=list)
-    pricing: Optional[str] = None
+    summary: str | None = None
+    features: list[str] = field(default_factory=list)
+    pricing: str | None = None
     source: str = ""
-    target_audience: Optional[str] = None
+    target_audience: str | None = None
     main_text: str = ""
-    ai_tool_annotation: Optional[str] = None
-    tags: List[str] = field(default_factory=list)
-    publish_date: Optional[str] = None
+    ai_tool_annotation: str | None = None
+    tags: list[str] = field(default_factory=list)
+    publish_date: str | None = None
+    is_recent: bool | None = None

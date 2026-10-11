@@ -4,6 +4,7 @@ search_agent.py: Plans a date window, searches SerpApi web and news, and compare
 import asyncio
 import json
 import logging
+import re
 from datetime import datetime, timedelta, timezone
 from typing import Any, Protocol
 from urllib.parse import urlparse, urlunparse
@@ -11,6 +12,7 @@ from urllib.parse import urlparse, urlunparse
 from serpapi_search_tools import SearchResultFormat, SerpApiSearchError, news_search, web_search
 
 from agents.config_agent import Settings
+from agents.page_kind import page_is_article, page_is_directory
 from config.constants import (
     AGGREGATOR_DOMAINS,
     BASE_QUERIES,
@@ -21,6 +23,25 @@ from models.candidate import Candidate
 
 WEB_ENGINE = "google"
 NEWS_ENGINE = "google_news"
+
+# List titles. A count below 3, a version like GPT-4, and a list quoted only in
+# the snippet are not matches: those still get fetched and the model can reject them.
+_LIST_COUNT = re.compile(
+    r"(?<![-.\w])([0-9]{1,4})\s+(?:new\s+|best\s+|ai\s+)*(?:tools|apps|agents)\b",
+    re.IGNORECASE,
+)
+_TOP_COUNT = re.compile(r"\btop\s+([0-9]{1,4})\b", re.IGNORECASE)
+_LIST_PHRASE = re.compile(r"\b(?:roundup|best ai tools)\b", re.IGNORECASE)
+_MIN_LIST_COUNT = 3
+_PRODUCT_HINTS = (
+    "pricing",
+    "sign up",
+    "signup",
+    "get started",
+    "launched",
+    "introducing",
+    "public beta",
+)
 
 
 class SearchClient(Protocol):
@@ -157,10 +178,46 @@ def candidates_from_payload(payload: dict[str, Any], engine: str) -> list[Candid
     return records
 
 
+def is_roundup_text(title: str, snippet: str = "") -> bool:
+    """True when the title is a list of tools, not one product.
+
+    A list that appears only in the snippet stays. Google often quotes one
+    under a product name. When the title is empty, the snippet is the only
+    label, so it is checked instead. A count below 3, and a version such as
+    GPT-4, stay.
+    """
+    text = title.strip() or snippet
+    if _LIST_PHRASE.search(text):
+        return True
+    for pattern in (_LIST_COUNT, _TOP_COUNT):
+        for match in pattern.finditer(text):
+            if int(match.group(1)) >= _MIN_LIST_COUNT:
+                return True
+    return False
+
+
+def candidate_score(candidate: Candidate) -> int:
+    """Prefer a product-shaped page over an article, before any fetch.
+
+    Every homepage scores above every article, so `--max-urls` cannot fill
+    itself with posts. Words like pricing or launched, two engines agreeing,
+    and a date only order pages of the same kind.
+    """
+    text = f"{candidate.title} {candidate.snippet}".lower()
+    hints = sum(1 for hint in _PRODUCT_HINTS if hint in text)
+    extras = hints + (1 if len(candidate.engines) > 1 else 0) + (1 if candidate.published_at else 0)
+    # Larger than every hint, plus both engines, plus a date.
+    if page_is_article(candidate.url):
+        return extras
+    return extras + len(_PRODUCT_HINTS) + 3
+
+
 def compare_candidates(records: list[Candidate], max_urls: int | None = None) -> list[Candidate]:
-    """Drop aggregators, strip tracking queries, and merge the same URL across engines.
+    """Drop aggregators and roundups, then rank what is left.
 
     When web and news disagree about the date, the news date is kept.
+    `--max-urls` applies after that rank, so the cap keeps product-shaped
+    pages rather than whichever row arrived first.
     """
     if max_urls is not None and max_urls < 1:
         raise ValueError("max_urls must be a positive integer")
@@ -197,7 +254,18 @@ def compare_candidates(records: list[Candidate], max_urls: int | None = None) ->
         if not current.snippet and record.snippet:
             current.snippet = record.snippet
 
-    chosen = [merged[url] for url in order]
+    ranked: list[tuple[int, Candidate]] = []
+    for index, url in enumerate(order):
+        candidate = merged[url]
+        if page_is_directory(candidate.url):
+            logging.info("Skipping directory before fetch: %s", candidate.url)
+            continue
+        if is_roundup_text(candidate.title, candidate.snippet):
+            logging.info("Skipping roundup before fetch: %s", candidate.title or url)
+            continue
+        ranked.append((index, candidate))
+    ranked.sort(key=lambda item: (-candidate_score(item[1]), item[0]))
+    chosen = [candidate for _, candidate in ranked]
     if max_urls is not None:
         return chosen[:max_urls]
     return chosen
@@ -251,8 +319,6 @@ async def _run_tool(
     """Call one engine for every query. One failure does not cancel the rest."""
     payloads: list[dict[str, Any]] = []
     errors: list[str] = []
-    succeeded = False
-
     for query in queries:
         try:
             raw = await asyncio.to_thread(tool, query=query)
@@ -261,7 +327,6 @@ async def _run_tool(
             logging.error(message)
             errors.append(message)
             continue
-
         try:
             payload = json.loads(raw)
         except json.JSONDecodeError as exc:
@@ -269,17 +334,13 @@ async def _run_tool(
             logging.error(message)
             errors.append(message)
             continue
-
         if not isinstance(payload, dict):
             message = f"Invalid JSON for {engine} query {query!r}: expected an object"
             logging.error(message)
             errors.append(message)
             continue
-
-        succeeded = True
         payloads.append(payload)
-
-    return payloads, errors, succeeded
+    return payloads, errors, bool(payloads)
 
 
 async def run_search(
@@ -306,8 +367,10 @@ async def run_search(
     )
 
     web_tool, news_tool = _build_tools(days, client)
-    web_payloads, web_errors, web_ok = await _run_tool(web_tool, web_queries, WEB_ENGINE)
-    news_payloads, news_errors, news_ok = await _run_tool(news_tool, news_queries, NEWS_ENGINE)
+    (web_payloads, web_errors, web_ok), (news_payloads, news_errors, news_ok) = await asyncio.gather(
+        _run_tool(web_tool, web_queries, WEB_ENGINE),
+        _run_tool(news_tool, news_queries, NEWS_ENGINE),
+    )
 
     if not web_ok and news_ok:
         logging.error("Web search failed; continuing with news results.")

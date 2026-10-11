@@ -39,6 +39,9 @@ def _stub_gates(monkeypatch: pytest.MonkeyPatch) -> None:
         return True
 
     monkeypatch.setattr("agents.scraper_agent.is_allowed_by_robots", allow)
+    async def safe(_url: str) -> str:
+        return _url
+    monkeypatch.setattr("agents.scraper_agent.validate_url_async", safe)
     monkeypatch.setattr("agents.scraper_agent.blacklist.is_blacklisted", lambda _domain: False)
     monkeypatch.setattr("agents.scraper_agent.blacklist.record_failure", lambda _domain: None)
 

@@ -14,16 +14,33 @@ from typing import Optional
 from urllib.parse import urljoin, urlparse
 
 import aiohttp
-from openai import AsyncAzureOpenAI
+from openai import AsyncAzureOpenAI, RateLimitError
 
 from agents.config_agent import AZURE_OPENAI_KEY, AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_DEPLOYMENT
-from config.constants import LLM_INPUT_TRUNCATION_LIMIT, DEFAULT_HEADERS, NON_RETRYABLE_STATUS_CODES
+from agents.page_kind import page_is_article, page_is_directory
+from config.constants import (
+    DEFAULT_HEADERS,
+    LLM_INPUT_TRUNCATION_LIMIT,
+    NON_PRODUCT_DOMAINS,
+    NON_RETRYABLE_STATUS_CODES,
+)
 from models.tool_info import ToolInfo
 from utils.blacklist import PersistentBlacklist
 from utils.error_handling import ScrapingError, ExtractionError
 from utils.prompt_loader import load_prompt, is_allowed_by_robots
+from utils.url_safety import UnsafeURL, validate_url_async
 
+_MAX_CACHE_SIZE = 1000
 _html_fetch_cache: dict[str, str] = {}
+
+
+def _cache_set(url: str, html: str) -> None:
+    """Store in bounded fetch cache, evicting oldest if full."""
+    if len(_html_fetch_cache) >= _MAX_CACHE_SIZE:
+        first_key = next(iter(_html_fetch_cache), None)
+        if first_key is not None:
+            _html_fetch_cache.pop(first_key, None)
+    _html_fetch_cache[url] = html
 
 blacklist = PersistentBlacklist()
 
@@ -77,28 +94,43 @@ async def fetch_with_retries(
     Certificate verification stays on (`ssl=True`). Skips blacklisted domains
     and non-retryable status codes.
     """
-    parsed = urlparse(url)
+    if url in _html_fetch_cache and _html_fetch_cache[url]:
+        return _html_fetch_cache[url]
+
     if not _is_https(url):
-        _html_fetch_cache[url] = ""
+        _cache_set(url, "")
         raise ScrapingError(
             f"Refusing non-TLS fetch for {url}",
             context={"url": url, "step": "fetch_with_retries", "reason": "tls"},
         )
+    try:
+        await validate_url_async(url)
+    except UnsafeURL as exc:
+        _cache_set(url, "")
+        raise ScrapingError(
+            f"Refusing unsafe fetch for {url}",
+            context={"url": url, "step": "fetch_with_retries", "reason": str(exc)},
+        ) from exc
+
+    parsed = urlparse(url)
 
     domain = (parsed.hostname or "").lower().rstrip(".") or parsed.netloc.lower()
 
     if blacklist.is_blacklisted(domain):
-        logging.warning(f"Domain {domain} is blacklisted. Skipping fetch for {url}.")
-        _html_fetch_cache[url] = ""
+        logging.warning("Domain %s is blacklisted. Skipping fetch for %s.", domain, url)
+        _cache_set(url, "")
         return ""
 
     delay = 2
     for attempt in range(retries):
         try:
-            allowed = await is_allowed_by_robots(url)
+            try:
+                allowed = await is_allowed_by_robots(url, session=session)
+            except TypeError:
+                allowed = await is_allowed_by_robots(url)
             if not allowed:
-                logging.warning(f"robots.txt disallows scraping {url}. Skipping fetch.")
-                _html_fetch_cache[url] = ""
+                logging.warning("robots.txt disallows scraping %s. Skipping fetch.", url)
+                _cache_set(url, "")
                 return ""
 
             current = url
@@ -120,11 +152,37 @@ async def fetch_with_retries(
                                 f"Refusing non-TLS redirect for {url}",
                                 context={"url": url, "step": "fetch_with_retries", "reason": "tls"},
                             )
+                        try:
+                            await validate_url_async(nxt)
+                        except UnsafeURL as exc:
+                            _cache_set(url, "")
+                            raise ScrapingError(
+                                f"Refusing unsafe redirect for {url}",
+                                context={
+                                    "url": url,
+                                    "step": "fetch_with_retries",
+                                    "reason": str(exc),
+                                },
+                            ) from exc
                         current = nxt
                         continue
                     status = resp.status
                     if resp.status == 200:
-                        html = await resp.text(encoding=resp.charset or "utf-8", errors="replace")
+                        content = getattr(resp, "content", None)
+                        if content is not None and hasattr(content, "iter_chunked"):
+                            chunks: list[bytes] = []
+                            size = 0
+                            async for chunk in content.iter_chunked(64 * 1024):
+                                size += len(chunk)
+                                if size > 500_000:
+                                    raise ScrapingError(
+                                        f"Response exceeded 500000 bytes for {url}",
+                                        context={"url": url, "step": "fetch_with_retries", "reason": "size"},
+                                    )
+                                chunks.append(chunk)
+                            html = b"".join(chunks).decode(resp.charset or "utf-8", errors="replace")
+                        else:
+                            html = await resp.text(encoding=resp.charset or "utf-8", errors="replace")
                     break
             else:
                 _html_fetch_cache[url] = ""
@@ -206,17 +264,6 @@ def _as_text(value: object, default: str = "") -> str:
     return default
 
 
-_ARTICLE_PATH_MARKERS = (
-    "/blog/",
-    "/blogs/",
-    "/news/",
-    "/article/",
-    "/articles/",
-    "/posts/",
-    "/post/",
-    "/stories/",
-    "/story/",
-)
 _UTILITY_SEGMENTS = frozenset({
     "privacy",
     "privacy-policy",
@@ -246,18 +293,6 @@ def _page_host(url: str) -> str:
     return host
 
 
-def page_is_article(url: str) -> bool:
-    """True for blog and news URLs. A product homepage is not an article."""
-    host = _page_host(url)
-    if host.startswith("blog.") or host.startswith("news."):
-        return True
-    path = (urlparse(url).path or "").lower()
-    padded = f"/{path.strip('/')}/" if path.strip("/") else "/"
-    if any(marker in padded for marker in _ARTICLE_PATH_MARKERS):
-        return True
-    return re.search(r"/20\d{2}/\d{2}/", path) is not None
-
-
 def _is_utility_path(url: str) -> bool:
     segments = [segment for segment in urlparse(url).path.lower().split("/") if segment]
     return any(segment in _UTILITY_SEGMENTS for segment in segments)
@@ -278,30 +313,24 @@ def _same_page(left: str, right: str) -> bool:
 
 
 class _AnchorCollector(HTMLParser):
-    """Collect anchor hrefs. Malformed markup stops collection."""
+    """Collect anchor hrefs, including anchors that HTML truncation left unclosed."""
 
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
         self.links: list[str] = []
-        self._href: str | None = None
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        if tag.lower() != "a" or self._href is not None:
+        if tag.lower() != "a":
             return
         for key, value in attrs:
             if key.lower() == "href" and value and value.strip():
-                self._href = value.strip()
+                self.links.append(value.strip())
                 return
-
-    def handle_endtag(self, tag: str) -> None:
-        if tag.lower() == "a" and self._href is not None:
-            self.links.append(self._href)
-            self._href = None
 
 
 def _visible_html(html: str) -> str:
     return re.sub(
-        r"<(script|style)\b[^>]*>.*?</\1>",
+        r"<(script|style|noscript)\b[^>]*>.*?</\1>",
         " ",
         html,
         flags=re.IGNORECASE | re.DOTALL,
@@ -319,25 +348,68 @@ def _absolute_https(page_url: str, raw: str) -> str | None:
     return absolute
 
 
-def _product_urls_by_domain(html: str, page_url: str) -> dict[str, list[str]]:
-    """Official product URLs named on the page, grouped by registrable domain.
+# Last two labels are the suffix, not the site. alpha.co.uk and beta.co.uk stay distinct.
+_MULTI_LABEL_SUFFIXES = frozenset({
+    "co.uk",
+    "org.uk",
+    "ac.uk",
+    "gov.uk",
+    "com.au",
+    "net.au",
+    "org.au",
+    "co.in",
+    "co.jp",
+    "co.nz",
+    "co.za",
+    "com.br",
+    "com.sg",
+})
 
-    Aggregators, utility paths, and other articles are not product URLs.
-    Several product domains means a roundup, so the caller must not pick one.
+
+def _registrable_domain(host: str) -> str:
+    labels = [label for label in host.split(".") if label]
+    if len(labels) >= 3 and ".".join(labels[-2:]) in _MULTI_LABEL_SUFFIXES:
+        return ".".join(labels[-3:])
+    if len(labels) >= 2:
+        return ".".join(labels[-2:])
+    return host
+
+
+def _is_non_product_host(host: str) -> bool:
+    """True for CDNs, font hosts, and consent widgets. Never the shipped product."""
+    domain = _registrable_domain(host)
+    return domain in NON_PRODUCT_DOMAINS or host in NON_PRODUCT_DOMAINS
+
+
+def _named_links(html: str) -> list[str]:
+    """Anchor targets, plus URLs written in the text. Tag attributes are not URLs.
+
+    A font stylesheet or an image CDN is not a second product. A URL typed in a
+    paragraph is.
     """
-    from agents.search_agent import is_aggregator, normalize_url
-
     visible = _visible_html(html or "")
-    raw_links: list[str] = []
+    anchors: list[str] = []
     collector = _AnchorCollector()
     try:
         collector.feed(visible)
         collector.close()
-        raw_links.extend(collector.links)
+        anchors.extend(collector.links)
     except Exception as exc:
-        logging.warning(f"Failed to parse links for {page_url}: {exc}")
+        logging.warning(f"Failed to parse links: {exc}")
+    text = re.sub(r"<[^>]+>", " ", visible)
+    return anchors + _URL_RE.findall(text)
 
-    raw_links.extend(_URL_RE.findall(visible))
+
+def _product_urls_by_domain(html: str, page_url: str) -> dict[str, list[str]]:
+    """Official product URLs named on the page, grouped by registrable domain.
+
+    Aggregators, utility paths, articles, and infrastructure hosts are not
+    product URLs. Several product domains means a roundup, so the caller must
+    not pick one.
+    """
+    from agents.search_agent import is_aggregator, normalize_url
+
+    raw_links = _named_links(html)
 
     grouped: dict[str, list[str]] = {}
     seen: set[str] = set()
@@ -345,7 +417,7 @@ def _product_urls_by_domain(html: str, page_url: str) -> dict[str, list[str]]:
         absolute = _absolute_https(page_url, raw)
         if absolute is None or _same_page(absolute, page_url):
             continue
-        if is_aggregator(absolute) or page_is_article(absolute) or _is_utility_path(absolute):
+        if is_aggregator(absolute) or page_is_article(absolute) or page_is_directory(absolute) or _is_utility_path(absolute):
             continue
         try:
             normalized = normalize_url(absolute)
@@ -355,12 +427,32 @@ def _product_urls_by_domain(html: str, page_url: str) -> dict[str, list[str]]:
             continue
         seen.add(normalized)
         host = _page_host(normalized)
-        labels = [label for label in host.split(".") if label]
-        domain = ".".join(labels[-2:]) if len(labels) >= 2 else host
+        if _is_non_product_host(host):
+            continue
+        domain = _registrable_domain(host)
         if not domain:
             continue
         grouped.setdefault(domain, []).append(normalized)
     return grouped
+
+
+def _chosen_product_urls(grouped: dict[str, list[str]], page_url: str) -> list[str] | None:
+    """The product URLs an article named, or None when it named several.
+
+    The publisher's own domain is not a second product: a magazine homepage
+    next to one tool link is still that tool. When nothing off-site is named,
+    the publisher's own links are the homepage of a same-site launch post.
+    """
+    page_domain = _registrable_domain(_page_host(page_url))
+    foreign = [urls for domain, urls in grouped.items() if domain != page_domain]
+    if len(foreign) == 1:
+        return foreign[0]
+    if len(foreign) > 1:
+        return None
+    own = grouped.get(page_domain)
+    if own:
+        return own
+    return None
 
 
 def _best_product_url(urls: list[str]) -> str:
@@ -407,17 +499,17 @@ def product_leads(tools: list[ToolInfo], already_fetched: set[str]) -> list[str]
 def apply_article_website(tool: ToolInfo, html: str, page_url: str) -> ToolInfo:
     """Prefer one official product URL over a blog or news URL.
 
-    A homepage is unchanged. An article that names one product domain uses that
-    URL as website. An article that names none, or several product domains, stays
+    A homepage is unchanged. An article that names one other product domain uses
+    that URL as website. The publisher's own domain does not count as another
+    product. An article that names none, or several other product domains, stays
     not_ai_tool so a roundup cannot become a single tool.
     """
     if not page_is_article(page_url):
         return tool
 
-    grouped = _product_urls_by_domain(html, page_url)
-    if len(grouped) == 1:
-        urls = next(iter(grouped.values()))
-        tool.website = _best_product_url(urls)
+    chosen = _chosen_product_urls(_product_urls_by_domain(html, page_url), page_url)
+    if chosen:
+        tool.website = _best_product_url(chosen)
         return tool
 
     tool.ai_tool_annotation = "not_ai_tool"
@@ -498,6 +590,8 @@ async def extract_tool_info_with_llm(html: str, url: str) -> ToolInfo:
 
         logging.warning(f"LLM extraction returned non-JSON for {url}")
 
+    except RateLimitError:
+        raise
     except ExtractionError:
         raise
     except Exception as e:

@@ -6,6 +6,7 @@ pipeline_agent.py: Orchestrates search, comparison, LLM extraction, deduplicatio
 """
 import asyncio
 import logging
+import random
 from datetime import datetime, timedelta, timezone
 
 import aiohttp
@@ -13,11 +14,11 @@ from openai import RateLimitError
 from tqdm import tqdm
 
 from agents.config_agent import Settings
+from agents.page_kind import page_is_article
 from agents.scraper_agent import (
     blacklist,
     extract_tool_info_with_llm,
     fetch_with_retries,
-    page_is_article,
     product_leads,
 )
 from agents.search_agent import SearchClient, format_comparison_table, normalize_url, run_search
@@ -53,7 +54,7 @@ async def _extract_with_retry(
     url: str,
     semaphore: asyncio.Semaphore,
     retries: int = 3,
-    delay: float = 10,
+    delay: float = 2,
 ) -> ToolInfo:
     """Run throttled LLM extraction with retry on rate-limit errors."""
     for attempt in range(retries):
@@ -62,12 +63,15 @@ async def _extract_with_retry(
         except RateLimitError:
             if attempt < retries - 1:
                 logging.warning(
-                    f"Rate limited for {url}, retrying in {delay}s (attempt {attempt + 1}/{retries})"
+                    "Rate limited for %s, retrying in %ss (attempt %d/%d)",
+                    url,
+                    delay,
+                    attempt + 1,
+                    retries,
                 )
-                await asyncio.sleep(delay)
+                await asyncio.sleep(delay * (2**attempt) + random.uniform(0, 0.5))
             else:
                 raise
-    return ToolInfo(title="", website=url, summary="", source=url, ai_tool_annotation="not_ai_tool")
 
 
 async def fetch_all_html(
@@ -87,7 +91,7 @@ async def fetch_all_html(
         for url, result in zip(batch, results):
             if isinstance(result, Exception):
                 context = getattr(result, "context", {})
-                logging.error(f"Error fetching {url}: {result} | Context: {context}")
+                logging.error("Error fetching %s: %s | Context: %s", url, result, context)
                 error_list.append({"url": url, "error": str(result), "context": context})
                 html_map[url] = ""
             else:
@@ -106,16 +110,25 @@ async def extract_all_tool_info(
         return []
 
     semaphore = asyncio.Semaphore(concurrency)
-    tasks = [_extract_with_retry(html, url, semaphore) for url, html in urls_and_htmls]
+    async def run_one(index: int, html: str, url: str) -> tuple[int, ToolInfo]:
+        return index, await _extract_with_retry(html, url, semaphore)
 
-    results: list[ToolInfo] = []
+    tasks = [
+        asyncio.create_task(run_one(index, html, url))
+        for index, (url, html) in enumerate(urls_and_htmls)
+    ]
+
+    results: list[ToolInfo | None] = [None] * len(tasks)
     with tqdm(total=len(tasks), desc="LLM Extraction", unit="tool") as pbar:
-        for coro in asyncio.as_completed(tasks):
-            result = await coro
-            results.append(result)
+        for task in asyncio.as_completed(tasks):
+            try:
+                index, result = await task
+                results[index] = result
+            except Exception as exc:
+                logging.error("LLM extraction failed: %s", type(exc).__name__)
             pbar.update(1)
 
-    return results
+    return [result for result in results if result is not None]
 
 
 def _deduplicate(tools: list[ToolInfo]) -> list[ToolInfo]:
@@ -139,6 +152,7 @@ def _filter_by_recency(tools: list[ToolInfo], days: int = SEARCH_DAYS) -> list[T
 
     for tool in tools:
         if not tool.publish_date:
+            tool.is_recent = None
             filtered.append(tool)
             continue
         try:
@@ -146,10 +160,16 @@ def _filter_by_recency(tools: list[ToolInfo], days: int = SEARCH_DAYS) -> list[T
                 pub_date = datetime.fromisoformat(tool.publish_date.replace("Z", "+00:00"))
             else:
                 pub_date = datetime.strptime(tool.publish_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+            if pub_date.tzinfo is None:
+                pub_date = pub_date.replace(tzinfo=timezone.utc)
+            else:
+                pub_date = pub_date.astimezone(timezone.utc)
 
-            if pub_date >= cutoff:
+            tool.is_recent = pub_date >= cutoff
+            if tool.is_recent:
                 filtered.append(tool)
         except (ValueError, TypeError):
+            tool.is_recent = None
             filtered.append(tool)
 
     return filtered

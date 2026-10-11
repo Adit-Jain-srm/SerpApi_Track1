@@ -30,9 +30,11 @@ class Settings:
     batch_size: int
     llm_concurrency_limit: int
     search_days: int
-    max_urls: int | None = None
+    max_urls: int | None = 10
     dry_run: bool = False
     skip_teams: bool = False
+    skip_slack: bool = False
+    skip_subscribers: bool = False
 
 
 def _env_int(name: str, default: int) -> int:
@@ -55,6 +57,7 @@ def load_settings() -> Settings:
         batch_size=_env_int("BATCH_SIZE", BATCH_SIZE),
         llm_concurrency_limit=_env_int("LLM_CONCURRENCY_LIMIT", LLM_CONCURRENCY_LIMIT),
         search_days=_env_int("SEARCH_DAYS", SEARCH_DAYS),
+        max_urls=_env_int("MAX_URLS", 10),
     )
 
 

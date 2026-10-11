@@ -256,3 +256,134 @@ def test_both_engines_fail(monkeypatch: pytest.MonkeyPatch, capsys: pytest.Captu
     assert code == 1
     assert "Both web and news search failed" in capsys.readouterr().err
 
+
+def test_a_topic_index_and_a_translated_story_lose_to_a_homepage() -> None:
+    """The pages from a zero-tool demo must not fill the fetch cap."""
+    records = [
+        Candidate(
+            url="https://resourify.com/topics/ai",
+            title="AI Tools, Platforms & LLM Deals",
+            snippet="A directory",
+            engines={"google"},
+        ),
+        Candidate(
+            url="https://xenospectrum.com/en/claude-managed-agents-dynamic-workflows/",
+            title="Claude managed agents",
+            snippet="A news story",
+            engines={"google"},
+        ),
+        Candidate(
+            url="https://nova.example/",
+            title="Nova",
+            snippet="Public beta. Pricing and sign up.",
+            engines={"google"},
+        ),
+    ]
+
+    ranked = compare_candidates(records)
+
+    assert [item.url for item in ranked][0] == "https://nova.example/"
+    assert "https://resourify.com/topics/ai" not in [item.url for item in ranked]
+    capped = compare_candidates(records, max_urls=1)
+    assert [item.url for item in capped] == ["https://nova.example/"]
+
+
+def test_roundups_are_dropped_and_homepages_rank_first() -> None:
+    """A list title never reaches fetch. A product URL outranks the article about it."""
+    records = [
+        Candidate(
+            url="https://magazine.example/blog/10-new-ai-tools",
+            title="10 new AI tools this week",
+            snippet="A roundup",
+            engines={"google"},
+        ),
+        Candidate(
+            url="https://blog.example.com/posts/we-shipped-nova",
+            title="We shipped Nova",
+            snippet="Read the announcement",
+            engines={"google_news"},
+        ),
+        Candidate(
+            url="https://nova.example/",
+            title="Nova",
+            snippet="Public beta. Pricing and sign up.",
+            published_at="2 hours ago",
+            engines={"google"},
+        ),
+    ]
+
+    ranked = compare_candidates(records)
+
+    assert [item.url for item in ranked] == [
+        "https://nova.example/",
+        "https://blog.example.com/posts/we-shipped-nova",
+    ]
+    capped = compare_candidates(records, max_urls=1)
+    assert [item.url for item in capped] == ["https://nova.example/"]
+
+    kept = compare_candidates(
+        [
+            Candidate(
+                url="https://nova.example/",
+                title="Nova launched this week",
+                snippet="Pricing and sign up",
+                engines={"google"},
+            )
+        ]
+    )
+    assert [item.url for item in kept] == ["https://nova.example/"]
+
+
+def test_a_single_launch_and_a_quoted_list_are_kept() -> None:
+    """One product, a version number, and a list that appears only in the snippet stay."""
+    records = [
+        Candidate(
+            url="https://one.example/",
+            title="Introducing 1 AI agent",
+            snippet="Sign up",
+            engines={"google"},
+        ),
+        Candidate(
+            url="https://nova.example/",
+            title="Nova, a GPT-4 assistant",
+            snippet="Featured in 10 best AI tools",
+            engines={"google"},
+        ),
+        Candidate(
+            url="https://magazine.example/blog/every-hint",
+            title="We launched introducing public beta",
+            snippet="Pricing, sign up, and get started",
+            published_at="2026-10-10",
+            engines={"google", "google_news"},
+        ),
+        Candidate(
+            url="https://bare.example/",
+            title="Bare",
+            snippet="",
+            engines={"google"},
+        ),
+    ]
+
+    ranked = compare_candidates(records)
+
+    assert [item.url for item in ranked][:3] == [
+        "https://one.example/",
+        "https://nova.example/",
+        "https://bare.example/",
+    ]
+    assert ranked[-1].url == "https://magazine.example/blog/every-hint"
+    pair = compare_candidates(
+        [Candidate(url="https://two.example/", title="2 new AI tools", snippet="", engines={"google"})]
+    )
+    assert [item.url for item in pair] == ["https://two.example/"]
+    assert (
+        compare_candidates(
+            [Candidate(url="https://lists.example/blog/three", title="3 AI tools", snippet="", engines={"google"})]
+        )
+        == []
+    )
+    untitled = compare_candidates(
+        [Candidate(url="https://lists.example/untitled", title="", snippet="10 AI tools", engines={"google"})]
+    )
+    assert untitled == []
+
