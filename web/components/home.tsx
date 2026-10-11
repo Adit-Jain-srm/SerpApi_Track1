@@ -57,7 +57,7 @@ export function Home() {
             height={506}
             alt="Sample digest card: title, website, audience, overview, features, pricing, and source."
           />
-          <figcaption>Sample of the card shape. Not a discovery from today.</figcaption>
+          <figcaption>Sample Digest Card — Illustrative. Not a discovery from today.</figcaption>
         </figure>
       </section>
 

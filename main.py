@@ -106,6 +106,15 @@ def _settings_from_args(args: argparse.Namespace) -> Settings:
     return replace(settings, **updates)
 
 
+def _required_delivery(name: str) -> bool:
+    return (os.environ.get(f"REQUIRE_{name}_DELIVERY") or "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
 def main(argv: list[str] | None = None, client: SearchClient | None = None) -> int:
     """Run the discovery pipeline. Returns a process exit code."""
     _configure_stdio()
@@ -143,8 +152,11 @@ def main(argv: list[str] | None = None, client: SearchClient | None = None) -> i
         return 0
 
     print_summary(tools)
+    delivery_failures: list[str] = []
     if settings.skip_teams:
         logging.info("Skipping Teams notification.")
+        if _required_delivery("TEAMS"):
+            delivery_failures.append("Teams")
     else:
         webhook = (os.environ.get("TEAMS_WEBHOOK_URL") or "").strip()
         if webhook:
@@ -154,13 +166,21 @@ def main(argv: list[str] | None = None, client: SearchClient | None = None) -> i
                         send_tool_to_teams(tool, index, webhook)
                     except Exception:
                         logging.error("Teams notification failed for tool %s.", index)
+                        if _required_delivery("TEAMS"):
+                            delivery_failures.append("Teams")
+        elif _required_delivery("TEAMS"):
+            delivery_failures.append("Teams")
     if settings.skip_slack:
         logging.info("Skipping Slack notification.")
+        if _required_delivery("SLACK"):
+            delivery_failures.append("Slack")
     else:
         slack_token = (os.environ.get("SLACK_BOT_TOKEN") or "").strip()
         slack_channel = (os.environ.get("SLACK_CHANNEL_ID") or "").strip()
         if not slack_token or not slack_channel:
             logging.warning("SLACK_BOT_TOKEN or SLACK_CHANNEL_ID not set. Skipping Slack notification.")
+            if _required_delivery("SLACK"):
+                delivery_failures.append("Slack")
         else:
             for index, tool in enumerate(tools, 1):
                 if tool.ai_tool_annotation == "ai_tool":
@@ -168,14 +188,27 @@ def main(argv: list[str] | None = None, client: SearchClient | None = None) -> i
                         send_tool_to_slack(tool, index, slack_token, slack_channel)
                     except Exception:
                         logging.error("Slack notification failed for tool %s.", index)
+                        if _required_delivery("SLACK"):
+                            delivery_failures.append("Slack")
     if settings.skip_subscribers:
         logging.info("Skipping subscriber delivery.")
+        if _required_delivery("SUBSCRIBER"):
+            delivery_failures.append("Subscribers")
     else:
         try:
             subscriber_stats = notify_subscribers(tools)
             logging.info("Subscriber delivery summary: %s", subscriber_stats)
+            if _required_delivery("SUBSCRIBER") and (
+                subscriber_stats["failed"] > 0 or subscriber_stats["skipped"] > 0
+            ):
+                delivery_failures.append("Subscribers")
         except Exception:
             logging.error("Subscriber delivery failed.")
+            if _required_delivery("SUBSCRIBER"):
+                delivery_failures.append("Subscribers")
+    if delivery_failures:
+        logging.error("Required deliveries failed: %s", ", ".join(sorted(set(delivery_failures))))
+        return 1
     return 0
 
 

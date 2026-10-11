@@ -158,6 +158,22 @@ export function Stage() {
   const cursorRef = useRef<HTMLDivElement>(null);
   const leaving = useRef(false);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const [diagnosticStatus, setDiagnosticStatus] = useState<"checking" | "operational" | "degraded">("checking");
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/diagnostics", { signal: controller.signal, cache: "no-store" })
+      .then((response) => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.json() as Promise<{ status?: "operational" | "degraded" }>;
+      })
+      .then((result) => setDiagnosticStatus(result.status === "operational" ? "operational" : "degraded"))
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        setDiagnosticStatus("degraded");
+      });
+    return () => controller.abort();
+  }, []);
 
   useEffect(() => {
     const root = rootRef.current;
@@ -427,8 +443,14 @@ export function Stage() {
               onClick={() => setShowDiagnostics(true)}
               title="Click to inspect live APIs and Supabase health"
             >
-              <span className="status-dot is-live" />
-              <span>APIs & DB Operational</span>
+              <span className={`status-dot ${diagnosticStatus === "operational" ? "is-live" : "is-warn"}`} />
+              <span>
+                {diagnosticStatus === "checking"
+                  ? "Checking APIs & DB"
+                  : diagnosticStatus === "operational"
+                  ? "APIs & DB Operational"
+                  : "APIs & DB Degraded"}
+              </span>
             </button>
             <p className="mast-edition">Weekly digest</p>
           </div>
@@ -489,7 +511,7 @@ export function Stage() {
               />
               <canvas className="cipher-plate" ref={cipherRef} aria-hidden="true" />
             </div>
-            <figcaption>Sample of the card. Not a discovery from today.</figcaption>
+            <figcaption>Sample Digest Card — Illustrative. Not a discovery from today.</figcaption>
           </figure>
           </div>
         </div>

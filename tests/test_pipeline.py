@@ -253,3 +253,32 @@ def test_teams_failure_does_not_block_slack(
         assert main([]) == 0
     assert len(slack_calls) == 1
     assert secret not in caplog.text
+
+
+def test_required_teams_failure_returns_nonzero(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def fake_pipeline(_settings, client: SearchClient | None = None) -> list[ToolInfo]:
+        return [
+            ToolInfo(
+                title="Nova",
+                website="https://nova.example",
+                source="https://blog.example/nova",
+                summary="A launch",
+                ai_tool_annotation="ai_tool",
+            )
+        ]
+
+    monkeypatch.setenv("SERPAPI_API_KEY", "test")
+    monkeypatch.setenv("AZURE_OPENAI_ENDPOINT", "https://example.openai.azure.com")
+    monkeypatch.setenv("AZURE_OPENAI_KEY", "test")
+    monkeypatch.setenv("REQUIRE_TEAMS_DELIVERY", "true")
+    monkeypatch.setenv("TEAMS_WEBHOOK_URL", "https://example.invalid/hook")
+    monkeypatch.setattr("main.run_pipeline", fake_pipeline)
+
+    def fail_delivery(*_args, **_kwargs):
+        raise RuntimeError("failed")
+
+    monkeypatch.setattr("main.send_tool_to_teams", fail_delivery)
+
+    assert main([]) == 1

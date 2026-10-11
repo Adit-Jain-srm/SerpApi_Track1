@@ -31,7 +31,7 @@ export default function GuidePage() {
           alt="Sample Teams digest for Quibim, with title, website, audience, overview, features, pricing, and source."
         />
         <figcaption>
-          Sample of the Teams card. Not a claim this tool was found today.
+          Sample Digest Card — Illustrative. Not a claim this tool was found today.
         </figcaption>
       </figure>
       <figure className="guide-still">

@@ -130,7 +130,7 @@ def check_azure_openai() -> dict[str, Any]:
         client = AzureOpenAI(
             azure_endpoint=endpoint,
             api_key=key,
-            api_version="2024-02-15-preview",
+            api_version="2025-01-01-preview",
             timeout=15.0,
         )
         completion = client.chat.completions.create(
@@ -299,8 +299,8 @@ def check_teams() -> dict[str, Any]:
 
     return {
         "status": "PASS",
-        "message": "Teams webhook URL configured and formatted validly (HTTPS).",
-        "details": {"url": url[:35] + "..."},
+        "message": "Teams webhook URL format verified only; no test message was sent.",
+        "details": {"url": url[:35] + "...", "verification": "format_only"},
     }
 
 

@@ -26,6 +26,45 @@ type ServiceResult = {
   searchesLeft?: number;
 };
 
+async function checkAzureOpenAI(): Promise<ServiceResult> {
+  const endpoint = (process.env.AZURE_OPENAI_ENDPOINT || "").replace(/\/$/, "");
+  const key = (process.env.AZURE_OPENAI_KEY || "").trim();
+  const deployment = (process.env.AZURE_OPENAI_DEPLOYMENT || "gpt-5.3-chat").trim();
+  if (!endpoint || !key) {
+    return { status: "warn", latencyMs: 0, message: "Azure OpenAI is not configured on this host" };
+  }
+  const started = Date.now();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000);
+  try {
+    const response = await fetch(
+      `${endpoint}/openai/deployments/${encodeURIComponent(deployment)}/chat/completions?api-version=2025-01-01-preview`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "api-key": key },
+        body: JSON.stringify({
+          messages: [{ role: "user", content: "Respond with PONG." }],
+          max_completion_tokens: 1,
+        }),
+        signal: controller.signal,
+        cache: "no-store",
+      },
+    );
+    const latencyMs = Date.now() - started;
+    return response.ok
+      ? { status: "pass", latencyMs, message: `Azure OpenAI deployment ${deployment} responded` }
+      : { status: "fail", latencyMs, message: `Azure OpenAI returned HTTP ${response.status}` };
+  } catch (error: unknown) {
+    return {
+      status: "fail",
+      latencyMs: Date.now() - started,
+      message: error instanceof Error && error.name === "AbortError" ? "Azure OpenAI probe timed out" : "Azure OpenAI probe failed",
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 export async function GET() {
   const started = Date.now();
   const root = repoRoot();
@@ -95,19 +134,22 @@ export async function GET() {
     }
   }
 
+  const azureResult = await checkAzureOpenAI();
   const pipelineResult = {
     status: root ? ("pass" as const) : ("warn" as const),
     message: root ? "Python execution engine available" : "Python engine path not found on host",
     hasRoot: Boolean(root),
   };
-  const allPass = supabaseResult.status === "pass" && serpapiResult.status === "pass" && pipelineResult.status === "pass";
+  const allPass = [supabaseResult, serpapiResult, azureResult, pipelineResult].every(
+    (service) => service.status === "pass",
+  );
 
   return NextResponse.json({
     status: allPass ? "operational" : "degraded",
     uptimeSeconds: process.uptime(),
     responseTimeMs: Date.now() - started,
     timestamp: new Date().toISOString(),
-    services: { supabase: supabaseResult, serpapi: serpapiResult, pipeline: pipelineResult },
+    services: { supabase: supabaseResult, serpapi: serpapiResult, azure: azureResult, pipeline: pipelineResult },
   });
 }
 

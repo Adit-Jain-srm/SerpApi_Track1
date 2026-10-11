@@ -18,6 +18,7 @@ interface DiagnosticsData {
   services: {
     supabase: ServiceReport;
     serpapi: ServiceReport;
+    azure: ServiceReport;
     pipeline: ServiceReport;
   };
 }
@@ -74,6 +75,12 @@ export function DiagnosticsDrawer({
   useEffect(() => {
     if (!isOpen || !panelRef.current) return;
     const panel = panelRef.current;
+    const overlay = panel.parentElement;
+    const background = overlay?.parentElement;
+    const backgroundChildren = background
+      ? Array.from(background.children).filter((child) => child !== overlay)
+      : [];
+    backgroundChildren.forEach((child) => child.setAttribute("inert", ""));
     const focusable = () =>
       Array.from(panel.querySelectorAll<HTMLElement>(
         'button, input, textarea, select, [href], [tabindex]:not([tabindex="-1"])',
@@ -91,7 +98,10 @@ export function DiagnosticsDrawer({
       next.focus();
     };
     panel.addEventListener("keydown", onTab);
-    return () => panel.removeEventListener("keydown", onTab);
+    return () => {
+      panel.removeEventListener("keydown", onTab);
+      backgroundChildren.forEach((child) => child.removeAttribute("inert"));
+    };
   }, [isOpen]);
 
   const handleTestWebhook = async (e: React.FormEvent) => {
@@ -204,10 +214,12 @@ export function DiagnosticsDrawer({
               <div className="diag-card">
                 <div className="diag-card-top">
                   <span className="diag-card-name">Azure OpenAI Extraction</span>
-                  <span className="pill-status pill-warn">CONFIGURED</span>
+                  <span className={`pill-status pill-${data.services.azure.status}`}>
+                    {data.services.azure.status === "pass" ? "ACTIVE" : data.services.azure.status.toUpperCase()}
+                  </span>
                 </div>
                 <p className="diag-card-msg">
-                  Azure OpenAI is configured through the Python runner. Run the pipeline for a live extraction probe.
+                  {data.services.azure.message}
                 </p>
                 <div className="diag-metrics">
                   <div className="diag-metric">

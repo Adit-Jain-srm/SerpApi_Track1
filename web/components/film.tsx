@@ -138,7 +138,7 @@ function CipherLine({ text, from, span }: { text: string; from: number; span: nu
 }
 
 export function Film({ digest }: { digest: DigestFile }) {
-  const caption = digest.label || "Sample card. Not a discovery from today.";
+  const caption = digest.label || "Sample Digest Card — Illustrative. Not a discovery from today.";
   const spacerRef = useRef<HTMLDivElement>(null);
   const frontRef = useRef<HTMLElement>(null);
   const labelRef = useRef<HTMLSpanElement>(null);

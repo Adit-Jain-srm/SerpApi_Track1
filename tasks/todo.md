@@ -43,23 +43,23 @@ Quality standards: Staff Engineer bar (@verification-and-elegance, @ui-ux-pro-ma
 ---
 
 ## 🌐 Phase 3: Runtime, Product Promise & Delivery (P1/P2)
-- [ ] **3.1 Aligned Runtime & Hosted Mode Communication**
+- [x] **3.1 Aligned Runtime & Hosted Mode Communication**
   - Fix: Clearly distinguish local runner vs hosted deployment in `/api/run` and UI copy. Provide a clear mode indicator and execution explanation.
 - [x] **3.2 Automated Delivery Scheduling**
   - Fix: Add GitHub Actions scheduled workflow (`.github/workflows/weekly-digest.yml`) for automated cron execution, aligning the "weekly automated digest" promise with real execution machinery.
 - [x] **3.3 Subscriber Fan-out Pagination & Delivery Status**
   - Fix: In `output/subscribers.py`, paginate Supabase subscriber rows beyond the 1000 limit, use bounded async/concurrent posting, and return structured delivery statistics (sent, failed, skipped).
-- [ ] **3.4 Structured CLI Delivery Exit Codes**
+- [x] **3.4 Structured CLI Delivery Exit Codes**
   - Fix: In `main.py`, report explicit channel delivery outcomes (Teams, Slack, Subscribers) and exit non-zero only if critical deliveries fail per policy.
 
 ---
 
 ## 🎨 Phase 4: Truthful Diagnostics, UI/UX & Accessibility (P2/P3)
-- [ ] **4.1 Truthful Live Diagnostics & Masthead Binding**
+- [x] **4.1 Truthful Live Diagnostics & Masthead Binding**
   - Fix: Bind masthead status to real diagnostic fetch states (not hardcoded green). Update `DiagnosticsDrawer` to display live measured state for Azure, SerpApi, Supabase, and Pipeline with timestamps.
-- [ ] **4.2 Doctor & Runtime Configuration Parity**
+- [x] **4.2 Doctor & Runtime Configuration Parity**
   - Fix: Update `check_apis.py` to use the same Azure API version as production extraction, label format-only checks truthfully, and test Supabase service role vs anon capabilities accurately.
-- [ ] **4.3 Explicit Sample vs Live Proof Labeling**
+- [x] **4.3 Explicit Sample vs Live Proof Labeling**
   - Fix: Unmistakably label cards as "Sample Digest Card — Illustrative" on the landing page, and cleanly wire `/api/proof` for live preview verification.
 - [x] **4.4 Accessibility: Focus Trapping, ARIA Live Regions, & WebGL Throttling**
   - Fix: Add focus trapping and `inert` backdrop management to `DiagnosticsDrawer`.
@@ -69,7 +69,7 @@ Quality standards: Staff Engineer bar (@verification-and-elegance, @ui-ux-pro-ma
 ---
 
 ## 🧪 Phase 5: Hermetic Quality Gate & CI (P2/P3)
-- [ ] **5.1 Hermetic Test Isolation**
+- [x] **5.1 Hermetic Test Isolation**
   - Fix: Mock all network calls in `tests/test_api_checks.py` and `tests/conftest.py` so unit tests never contact live Supabase or external APIs.
 - [x] **5.2 CI Workflow & Quality Scripts**
   - Fix: Add `.github/workflows/ci.yml` running:
@@ -82,4 +82,4 @@ Quality standards: Staff Engineer bar (@verification-and-elegance, @ui-ux-pro-ma
 - **Shipped:** Python URL/IP safety validation, redirect revalidation, bounded decompressed HTML reads, safe subscriber webhook delivery with pagination, Next.js webhook validation/timeout/redirect checks, diagnostics authorization header repair, and the web `typecheck` script.
 - **Verification:** Focused Python suite: `10 passed`; web TypeScript check: `tsc --noEmit` passed.
 - **Lessons learned:** Existing test doubles expose only `response.text()`, so the streaming cap preserves a fallback for lightweight response implementations while using chunked reads for real aiohttp responses.
-- **Remaining debt:** Hosted-mode copy, structured critical-delivery exit policy, full live Azure doctor parity, masthead diagnostics binding, inert backdrop management, and deeper test-network auditing remain.
+- **Remaining debt:** No planned remediation items remain. Existing lint warnings are limited to image optimization and internal navigation recommendations.
