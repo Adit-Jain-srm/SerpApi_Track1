@@ -8,6 +8,7 @@ import asyncio
 import logging
 import random
 import re
+import sys
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlparse
 
@@ -26,7 +27,6 @@ from agents.scraper_agent import (
 from agents.search_agent import SearchClient, format_comparison_table, normalize_url, run_search
 from config.constants import BATCH_SIZE, LLM_CONCURRENCY_LIMIT, SEARCH_DAYS
 from models.tool_info import ToolInfo
-from utils.url_safety import UnsafeURL, validate_url
 
 
 class PipelineContext:
@@ -86,7 +86,12 @@ async def fetch_all_html(
     html_map: dict[str, str] = {}
     error_list: list[dict] = []
 
-    for i in tqdm(range(0, len(urls), batch_size), desc="Fetching HTML", unit="batch"):
+    for i in tqdm(
+        range(0, len(urls), batch_size),
+        desc="Fetching HTML",
+        unit="batch",
+        disable=not sys.stderr.isatty(),
+    ):
         batch = urls[i : i + batch_size]
         tasks = [fetch_with_retries(url, session) for url in batch]
         results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -122,7 +127,12 @@ async def extract_all_tool_info(
     ]
 
     results: list[ToolInfo | None] = [None] * len(tasks)
-    with tqdm(total=len(tasks), desc="LLM Extraction", unit="tool") as pbar:
+    with tqdm(
+        total=len(tasks),
+        desc="LLM Extraction",
+        unit="tool",
+        disable=not sys.stderr.isatty(),
+    ) as pbar:
         for task in asyncio.as_completed(tasks):
             try:
                 index, result = await task
