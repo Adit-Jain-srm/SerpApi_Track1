@@ -4,6 +4,9 @@ import { useEffect, useRef, useState } from "react";
 
 type Phase = "idle" | "running" | "done" | "error" | "unavailable";
 
+const GITHUB_ACTIONS_HREF =
+  "https://github.com/Adit-Jain-srm/SerpApi_Track1/actions/workflows/weekly-digest.yml";
+
 export function RunDrawer() {
   const [phase, setPhase] = useState<Phase>("idle");
   const [lines, setLines] = useState<string[]>([]);
@@ -188,8 +191,37 @@ export function RunDrawer() {
           ? "The hosted site cannot run Python directly. Use GitHub Actions or the repository CLI to start a worker run."
           : "Ready to launch discovery sequence."}
       </p>
+      {phase === "unavailable" ? (
+        <div className="run-bridge" role="note">
+          <div>
+            <strong>Hosted preview mode</strong>
+            <p>
+              This page is the judge-facing control room. Vercel serves the interface and live
+              diagnostics; the long-running Python worker runs in GitHub Actions or from the
+              repository.
+            </p>
+          </div>
+          <div className="run-bridge-actions">
+            <a className="control" href="#output">
+              Preview digest output
+            </a>
+            <a className="text-link" href={GITHUB_ACTIONS_HREF} target="_blank" rel="noreferrer">
+              Run worker in GitHub Actions ↗
+            </a>
+            <a className="text-link" href="/guide">
+              Open judge guide
+            </a>
+          </div>
+        </div>
+      ) : null}
       <pre ref={logRef} className="run-log">
-        {lines.length === 0 ? <span className="run-quiet">Click "Start Pipeline" to trigger discovery run.</span> : lines.join("\n")}
+        {lines.length === 0 ? (
+          <span className="run-quiet">
+            {phase === "unavailable"
+              ? "No hosted worker is attached. Use the preview or launch the GitHub Actions worker."
+              : 'Click "Start Pipeline" to trigger discovery run.'}
+          </span>
+        ) : lines.join("\n")}
         {phase === "running" ? <span className="run-caret"> ▍</span> : null}
       </pre>
     </section>

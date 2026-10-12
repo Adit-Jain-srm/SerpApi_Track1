@@ -107,6 +107,27 @@ cp .env.example .env`}</code>
         The production site exposes live service diagnostics for Supabase, SerpApi, Azure OpenAI, and the hosted execution model. Open <a href="/#diagnostics">Diagnostics & APIs</a> from the homepage to inspect the current status.
       </p>
 
+      <h2>Judge preview</h2>
+      <p>
+        The hosted page is the product preview. Start with <a href="/">Preview a digest</a> to
+        inspect the readable Teams and Slack outputs, then open <a href="/#diagnostics">Diagnostics
+        & APIs</a> to verify the live SerpApi, Azure OpenAI, and Supabase connections.
+      </p>
+      <p>
+        The <strong>Run Discovery Pipeline</strong> panel reports <code>UNAVAILABLE</code> on
+        Vercel by design. Vercel serves the Next.js interface, but it does not package or keep a
+        Python worker alive for a long scrape and extraction run. To execute a fresh digest during
+        judging, open the{" "}
+        <a
+          href="https://github.com/Adit-Jain-srm/SerpApi_Track1/actions/workflows/weekly-digest.yml"
+          target="_blank"
+          rel="noreferrer"
+        >
+          Weekly digest GitHub Action
+        </a>
+        and choose <strong>Run workflow</strong>. The repository CLI is the local alternative.
+      </p>
+
       <h2>Run</h2>
       <p>From the repo root, with the virtual environment active:</p>
       <pre>

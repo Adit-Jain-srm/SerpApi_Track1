@@ -512,6 +512,49 @@
   opacity: 0.55;
 }
 
+.run-bridge {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 0.75rem;
+  padding: 0.8rem 0.85rem;
+  border: 1px solid color-mix(in oklab, var(--accent) 55%, var(--ink));
+  background: color-mix(in oklab, var(--accent) 8%, var(--paper));
+}
+
+.run-bridge strong {
+  display: block;
+  font-size: 0.9rem;
+}
+
+.run-bridge p {
+  max-width: 62ch;
+  margin: 0.25rem 0 0;
+  color: var(--ink);
+  font-size: 0.86rem;
+  line-height: 1.4;
+}
+
+.run-bridge-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.65rem 0.9rem;
+}
+
+@media (max-width: 700px) {
+  .run-bridge {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .run-bridge-actions {
+    justify-content: flex-start;
+  }
+}
+
 .stage-outro {
   display: flex;
   flex-direction: column;

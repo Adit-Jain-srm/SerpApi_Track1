@@ -405,6 +405,9 @@ export function Stage() {
               <a className="control" href="#run">
                 Run the digest
               </a>
+              <a className="control" href="#output">
+                Preview a digest
+              </a>
               <button
                 type="button"
                 className="control control-diag"
