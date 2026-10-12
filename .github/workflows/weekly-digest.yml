@@ -12,11 +12,28 @@ jobs:
   digest:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-      - run: pip install -r requirements.txt
+      - name: Validate worker secrets
+        env:
+          SERPAPI_API_KEY: ${{ secrets.SERPAPI_API_KEY }}
+          AZURE_OPENAI_ENDPOINT: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
+          AZURE_OPENAI_KEY: ${{ secrets.AZURE_OPENAI_KEY }}
+        run: |
+          missing=()
+          for name in SERPAPI_API_KEY AZURE_OPENAI_ENDPOINT AZURE_OPENAI_KEY; do
+            if [ -z "${!name}" ]; then
+              missing+=("$name")
+            fi
+          done
+          if [ "${#missing[@]}" -gt 0 ]; then
+            printf 'Missing required GitHub Actions secret(s): %s\n' "${missing[*]}" >&2
+            printf 'Add them under Settings > Secrets and variables > Actions, then rerun this workflow.\n' >&2
+            exit 1
+          fi
+      - run: python -m pip install -r requirements.txt
       - run: python main.py
         env:
           SERPAPI_API_KEY: ${{ secrets.SERPAPI_API_KEY }}
