@@ -19,7 +19,7 @@ Quality standards: Staff Engineer bar (@verification-and-elegance, @ui-ux-pro-ma
     - Subscriber delivery worker (`output/subscribers.py`)
     - Subscriber save validation (`web/app/subscribe/actions.ts`)
 - [x] **1.3 Diagnostic Redaction & Auth Check**
-  - Fix: Redact API keys and credential-bearing query parameters from diagnostic exception strings (`check_apis.py`).
+  - Fix: Redact API keys and credential-bearing query parameters from diagnostic exception strings.
   - Add origin / authentication and destination allowlist to `POST /api/diagnostics`.
 
 ---
@@ -58,7 +58,7 @@ Quality standards: Staff Engineer bar (@verification-and-elegance, @ui-ux-pro-ma
 - [x] **4.1 Truthful Live Diagnostics & Masthead Binding**
   - Fix: Bind masthead status to real diagnostic fetch states (not hardcoded green). Update `DiagnosticsDrawer` to display live measured state for Azure, SerpApi, Supabase, and Pipeline with timestamps.
 - [x] **4.2 Doctor & Runtime Configuration Parity**
-  - Fix: Update `check_apis.py` to use the same Azure API version as production extraction, label format-only checks truthfully, and test Supabase service role vs anon capabilities accurately.
+  - Fix: Keep the web diagnostics endpoint aligned with production extraction, label format-only checks truthfully, and test Supabase service role vs anon capabilities accurately.
 - [x] **4.3 Explicit Sample vs Live Proof Labeling**
   - Fix: Unmistakably label cards as "Sample Digest Card — Illustrative" on the landing page, and cleanly wire `/api/proof` for live preview verification.
 - [x] **4.4 Accessibility: Focus Trapping, ARIA Live Regions, & WebGL Throttling**
@@ -70,7 +70,7 @@ Quality standards: Staff Engineer bar (@verification-and-elegance, @ui-ux-pro-ma
 
 ## 🧪 Phase 5: Hermetic Quality Gate & CI (P2/P3)
 - [x] **5.1 Hermetic Test Isolation**
-  - Fix: Mock all network calls in `tests/test_api_checks.py` and `tests/conftest.py` so unit tests never contact live Supabase or external APIs.
+  - Fix: Mock all network calls in the pipeline tests and `tests/conftest.py` so unit tests never contact live Supabase or external APIs.
 - [x] **5.2 CI Workflow & Quality Scripts**
   - Fix: Add `.github/workflows/ci.yml` running:
     - Python `pytest -v`

@@ -103,12 +103,9 @@ cp .env.example .env`}</code>
       </p>
 
       <h2>Health Check & Diagnostics</h2>
-      <p>To verify all credentials, search quotas, database connection, and latency before running:</p>
-      <pre>
-        <code>{`python main.py --doctor
-# or standalone:
-python check_apis.py`}</code>
-      </pre>
+      <p>
+        The production site exposes live service diagnostics for Supabase, SerpApi, Azure OpenAI, and the hosted execution model. Open <a href="/#diagnostics">Diagnostics & APIs</a> from the homepage to inspect the current status.
+      </p>
 
       <h2>Run</h2>
       <p>From the repo root, with the virtual environment active:</p>
@@ -118,12 +115,6 @@ python check_apis.py`}</code>
 
       <h2>Flags</h2>
       <dl className="guide-flags">
-        <div>
-          <dt>
-            <code>--doctor</code>
-          </dt>
-          <dd>Verify connectivity and latency for SerpApi, Azure OpenAI, Supabase, and Slack before running.</dd>
-        </div>
         <div>
           <dt>
             <code>--days</code>
@@ -162,8 +153,7 @@ python check_apis.py`}</code>
         </div>
       </dl>
       <pre>
-        <code>{`python main.py --doctor
-python main.py --days 7
+        <code>{`python main.py --days 7
 python main.py --dry-run
 python main.py --skip-teams
 python main.py --skip-slack

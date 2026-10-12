@@ -82,12 +82,6 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Maximum candidates to keep after comparison.",
     )
-    parser.add_argument(
-        "--doctor",
-        "--check-apis",
-        action="store_true",
-        help="Run comprehensive health and connectivity checks on all APIs and database.",
-    )
     return parser
 
 
@@ -121,10 +115,6 @@ def main(argv: list[str] | None = None, client: SearchClient | None = None) -> i
     setup_logging()
     parser = build_parser()
     args = parser.parse_args(argv)
-
-    if args.doctor:
-        from check_apis import print_report, run_all_checks
-        return print_report(run_all_checks())
 
     if args.days is not None and args.days < 1:
         parser.error("--days must be a positive integer")

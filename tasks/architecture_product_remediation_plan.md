@@ -63,7 +63,7 @@ graph TD
 | **Crawler & Robots SSRF** | `fetch_with_retries` and `is_allowed_by_robots` only check for `https://` prefix; private/loopback IPs are reachable. | Create `utils/url_safety.py`. Resolve hostname to IP before socket connect; reject loopback (`127.0.0.0/8`), RFC1918 (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`), link-local (`169.254.0.0/16`), IPv6 loopback (`::1`), and cloud metadata services. Re-validate every redirect hop. | [scraper_agent.py](file:///c:/Users/aditj/New%20Projects/SerpApi_Track1/agents/scraper_agent.py), [prompt_loader.py](file:///c:/Users/aditj/New%20Projects/SerpApi_Track1/utils/prompt_loader.py) |
 | **Diagnostics SSRF Proxy** | `POST /api/diagnostics` makes unauthenticated server-side requests to arbitrary URLs. | Create `web/lib/url-safety.ts`. Validate destination IP, enforce 5s timeout, restrict destinations to verified webhook patterns or origin-checked callers, cap response excerpt. | [route.ts](file:///c:/Users/aditj/New%20Projects/SerpApi_Track1/web/app/api/diagnostics/route.ts) |
 | **Subscriber Webhook Targets** | Subscribed URLs only verified by regex `^https://`; worker uses `requests.post` following redirects. | Validate URLs at save time and send time through safe egress checker; disable automatic redirect following or validate each hop. | [subscribers.py](file:///c:/Users/aditj/New%20Projects/SerpApi_Track1/output/subscribers.py), [actions.ts](file:///c:/Users/aditj/New%20Projects/SerpApi_Track1/web/app/subscribe/actions.ts) |
-| **SerpApi Key in Exceptions** | `check_apis.py` reports `str(exc)` which includes query parameter `api_key`. | Strip query params and redact API keys before returning exception details or writing to logs. | [check_apis.py](file:///c:/Users/aditj/New%20Projects/SerpApi_Track1/check_apis.py) |
+| **SerpApi Key in Exceptions** | Diagnostic error handling could expose query parameters containing `api_key`. | Strip query params and redact API keys before returning exception details or writing to logs. | `web/app/api/diagnostics/route.ts` |
 | **Unrelated Mission Rule** | `.agents/rules/agent-core.mdc` instructs agent to seek OSS bounties and maximize GitHub commits. | Replace with clean repo-specific instructions dedicated to AI Tool Discovery Agent architecture. | [.agents/rules/agent-core.mdc](file:///c:/Users/aditj/New%20Projects/SerpApi_Track1/.agents/rules/agent-core.mdc), [.cursor/rules/agent-core.mdc](file:///c:/Users/aditj/New%20Projects/SerpApi_Track1/.cursor/rules/agent-core.mdc) |
 
 ---
@@ -107,7 +107,7 @@ graph TD
    - Masthead indicator dynamically reads actual diagnostic API state (`operational`, `degraded`, `checking`) rather than hardcoding green.
    - `DiagnosticsDrawer`: Bind Azure card to real live check results and display exact timestamp of the probe.
 2. **Parity Between Doctor and Runtime**:
-   - In `check_apis.py`: Use exact same Azure API version (`2024-02-15-preview` or `2025-01-01-preview`), validate Teams URL reachability or label as "format syntax only", and distinguish Supabase service role vs anon key access.
+   - In the web diagnostics route: Use the same Azure API version as extraction, validate Teams URL reachability or label it as "format syntax only", and distinguish Supabase service role vs anon key access.
 3. **Sample vs Live Proof Clarification**:
    - Label cards on the landing page as *"Sample Digest Card — Illustrative"* while maintaining `/api/proof` for live preview verification.
 4. **Accessibility & WebGL Optimization**:
@@ -121,7 +121,7 @@ graph TD
 **Goal:** Eliminate test network leaks and ensure automated quality gates on every commit.
 
 1. **Hermetic Test Isolation**:
-   - Update `tests/conftest.py` and `tests/test_api_checks.py`: Mock all requests and database calls so `pytest` never hits live Supabase or external endpoints during unit tests.
+   - Update `tests/conftest.py` and pipeline tests: Mock all requests and database calls so `pytest` never hits live Supabase or external endpoints during unit tests.
 2. **Continuous Integration Workflow**:
    - Create `.github/workflows/ci.yml`:
      - Python step: `pytest -v --cov`
@@ -137,6 +137,6 @@ graph TD
 | Safe Egress & SSRF | Unit tests against private IPs (`127.0.0.1`, `169.254.169.254`, `10.0.0.1`) | Blocked with `SecurityError` |
 | Pipeline Resilience | Mock test simulating 1 LLM failure among 5 candidates | 4 tools successfully extracted, 1 flagged; exit 0 |
 | Rate-Limit Retry | Mock test raising `RateLimitError` | Retries 3 times with backoff, then succeeds |
-| Diagnostics Parity | `python main.py --doctor` & `GET /api/diagnostics` | Identical versions, truthful statuses, no exposed keys |
+| Diagnostics Parity | `GET /api/diagnostics` | Truthful statuses, no exposed keys |
 | Test Hermeticity | `python -m pytest` with disconnected network / unconfigured env | 100% pass without network requests |
 | Production Build | `npm run build` and `npm run typecheck` | 0 errors, 0 warnings, valid bundle |
