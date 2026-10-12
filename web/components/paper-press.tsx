@@ -15,11 +15,14 @@ export function PaperPress() {
 
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
     const narrow = window.matchMedia("(max-width: 800px)");
+    if (reduced.matches || narrow.matches || document.visibilityState !== "visible") return;
+
     let dead = false;
+    let inView = true;
     let frame = 0;
     let dispose = () => {};
     const shouldRender = () =>
-      !dead && !narrow.matches && document.visibilityState === "visible" && canvas.clientWidth > 0;
+      !dead && inView && !narrow.matches && document.visibilityState === "visible" && canvas.clientWidth > 0;
 
     void import("three").then((THREE) => {
       if (dead) return;
@@ -65,8 +68,16 @@ export function PaperPress() {
         camera.updateProjectionMatrix();
       };
       fit();
-      const observer = new ResizeObserver(fit);
-      observer.observe(canvas);
+      const resizeObserver = new ResizeObserver(fit);
+      resizeObserver.observe(canvas);
+      const visibilityObserver = new IntersectionObserver(
+        ([entry]) => {
+          inView = entry?.isIntersecting ?? false;
+          arm();
+        },
+        { threshold: 0 },
+      );
+      visibilityObserver.observe(canvas);
 
       const loop = (time: number) => {
         frame = 0;
@@ -105,7 +116,8 @@ export function PaperPress() {
         reduced.removeEventListener("change", arm);
         narrow.removeEventListener("change", arm);
         document.removeEventListener("visibilitychange", arm);
-        observer.disconnect();
+        resizeObserver.disconnect();
+        visibilityObserver.disconnect();
         renderer.dispose();
         paper.dispose();
         accent.dispose();

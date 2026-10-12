@@ -469,7 +469,7 @@ export function Stage() {
             <div className="act-pin" data-pin>
               <div className="act-inner">
                 <h2 id="output">The same card, two rooms</h2>
-                <p className="band-note">Teams on one side, Slack on the other. A phone shows both, one after the other.</p>
+                <p className="band-note">Illustrative output: Teams on one side, Slack on the other. A phone shows both, one after the other.</p>
                 <div
                   className="seam"
                   onPointerMove={onSeamMove}
