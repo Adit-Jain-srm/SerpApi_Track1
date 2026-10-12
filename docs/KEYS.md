@@ -6,7 +6,7 @@ Copy `.env.example` to `.env` in the repo root and fill it in there. `.env` is g
 
 | Variable | Required | Where it is used |
 |---|---|---|
-| `SERPAPI_API_KEY` | Yes | Local pipeline, and the one Vercel variable |
+| `SERPAPI_API_KEY` | Yes | Local pipeline and optional live proof route |
 | `AZURE_OPENAI_ENDPOINT` | Yes | Page extraction |
 | `AZURE_OPENAI_KEY` | Yes | Page extraction |
 | `AZURE_OPENAI_DEPLOYMENT` | No | Page extraction. Empty defaults to `gpt-5.3-chat`. |
@@ -70,8 +70,8 @@ A name such as `#launches` will not work.
 
 ## Vercel
 
-The public page deploys with project root `web/`. Set one variable on that project:
+The public page deploys with project root `web/`. Set this optional variable to enable the live proof route:
 
 - `SERPAPI_API_KEY`
 
-Do not add the Azure endpoint, the Azure key, the deployment name, the Teams webhook, or the Slack tokens to Vercel. The live proof route calls SerpApi with the fixed digest query and the same date window. If `SERPAPI_API_KEY` is unset there, the page stays on its sample cards.
+Do not add the Azure endpoint, the Azure key, the deployment name, the Teams webhook, or the Slack tokens to Vercel. The live proof route calls SerpApi with the fixed digest query and the same date window. If `SERPAPI_API_KEY` is unset there, the page stays on its illustrative output cards. The Vercel site does not run the Python worker; manual runs use the repository CLI and the weekly worker uses the scheduled GitHub Actions workflow.
