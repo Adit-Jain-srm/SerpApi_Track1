@@ -83,40 +83,7 @@
   opacity: calc(1 - var(--press));
 }
 
-.hero-plate {
-  margin: 0;
-}
 
-.card-frame {
-  position: relative;
-  width: 100%;
-}
-
-.cipher-plate {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  opacity: 0;
-}
-
-.hero-plate img {
-  display: block;
-  width: 100%;
-  height: auto;
-  max-height: 26dvh;
-  object-fit: contain;
-  object-position: center bottom;
-  border: 1px solid var(--ink);
-  background: oklch(0.2 0.02 270);
-}
-
-.hero-plate figcaption {
-  margin-top: 0.4rem;
-  color: var(--ink-soft);
-  font-style: italic;
-}
 
 .hero-copy .actions {
   margin-top: 1rem;
@@ -676,10 +643,6 @@
     opacity: 1;
   }
 
-  .hero-plate img {
-    max-height: none;
-  }
-
   .seam {
     aspect-ratio: auto;
     display: grid;
@@ -704,7 +667,6 @@
   .rule-red,
   .stage-wave,
   .burst,
-  .cipher-plate,
   .cursor {
     animation: none;
     display: none;

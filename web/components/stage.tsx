@@ -3,8 +3,8 @@
 /**
  * Thesis
  * Metaphor — a week of search noise is pressed into one card.
- * Hero material — the Teams card. Scroll breaks it into cells; Slack shares the later seam.
- * Playhead — scroll progress is the press. Noise and the card lose their detail together.
+ * Hero material — the press desk. Slack and Teams share the later seam.
+ * Playhead — scroll progress is the press. Noise loses its detail before the proof appears below.
  * Ceremony — "Read the guide" commits, a paper wave covers, then the route changes.
  * Still — reduced motion and phones show the claim, both cards, and the steps already resolved.
  */
@@ -64,69 +64,6 @@ function easeInOut(t: number): number {
 }
 
 const GLYPHS = "█▓▒░•";
-const cipherBuffer = typeof document === "undefined" ? null : document.createElement("canvas");
-
-function cellHash(x: number, y: number): number {
-  const value = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
-  return value - Math.floor(value);
-}
-
-function paintCipher(canvas: HTMLCanvasElement, img: HTMLImageElement, press: number) {
-  const ctx = canvas.getContext("2d");
-  if (!ctx || !cipherBuffer || !img.complete || img.naturalWidth === 0) return;
-  const rect = canvas.getBoundingClientRect();
-  if (rect.width < 2 || rect.height < 2) return;
-  const coarse = window.matchMedia("(pointer: coarse)").matches;
-  const dpr = Math.min(window.devicePixelRatio || 1, coarse ? 1 : 1.25);
-  const width = Math.max(1, Math.round(rect.width * dpr));
-  const height = Math.max(1, Math.round(rect.height * dpr));
-  if (canvas.width !== width || canvas.height !== height) {
-    canvas.width = width;
-    canvas.height = height;
-  }
-  if (press <= 0.02) {
-    ctx.clearRect(0, 0, width, height);
-    canvas.style.opacity = "0";
-    return;
-  }
-  const eased = press * press;
-  const cols = Math.max(14, Math.round(150 - eased * 136));
-  const rows = Math.max(8, Math.round((cols * height) / width));
-  cipherBuffer.width = cols;
-  cipherBuffer.height = rows;
-  const buffer = cipherBuffer.getContext("2d");
-  if (!buffer) return;
-  const ratio = img.naturalWidth / img.naturalHeight;
-  const frame = cols / rows;
-  let sx = 0;
-  let sy = 0;
-  let sw = img.naturalWidth;
-  let sh = img.naturalHeight;
-  if (ratio > frame) {
-    sw = img.naturalHeight * frame;
-    sx = (img.naturalWidth - sw) / 2;
-  } else {
-    sh = img.naturalWidth / frame;
-    sy = (img.naturalHeight - sh) / 2;
-  }
-  buffer.drawImage(img, sx, sy, sw, sh, 0, 0, cols, rows);
-  const pixels = buffer.getImageData(0, 0, cols, rows);
-  for (let row = 0; row < rows; row += 1) {
-    for (let col = 0; col < cols; col += 1) {
-      if (cellHash(col, row) > eased * 0.22) continue;
-      const index = (row * cols + col) * 4;
-      pixels.data[index] = 168;
-      pixels.data[index + 1] = 52;
-      pixels.data[index + 2] = 42;
-      pixels.data[index + 3] = 255;
-    }
-  }
-  buffer.putImageData(pixels, 0, 0);
-  ctx.imageSmoothingEnabled = false;
-  ctx.clearRect(0, 0, width, height);
-  ctx.drawImage(cipherBuffer, 0, 0, cols, rows, 0, 0, width, height);
-  canvas.style.opacity = String(Math.min(1, (press - 0.02) / 0.18));
-}
 
 function censorLabel(el: HTMLElement, target: string) {
   let frame = 0;
@@ -153,8 +90,6 @@ export function Stage() {
   const wrapRef = useRef<HTMLDivElement>(null);
   const outroRef = useRef<HTMLElement>(null);
   const waveRef = useRef<SVGSVGElement>(null);
-  const plateRef = useRef<HTMLImageElement>(null);
-  const cipherRef = useRef<HTMLCanvasElement>(null);
   const cursorRef = useRef<HTMLDivElement>(null);
   const leaving = useRef(false);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
@@ -193,8 +128,6 @@ export function Stage() {
     let ticker = 0;
     let idle = 0;
     let idleOn = false;
-    const plate = plateRef.current;
-    const cipher = cipherRef.current;
     const cursor = cursorRef.current;
 
     const clearStage = () => {
@@ -258,7 +191,6 @@ export function Stage() {
       if (!cinematic()) {
         root.classList.add("is-flat");
         stopIdle();
-        if (cipher) cipher.style.opacity = "0";
         clearStage();
         return;
       }
@@ -273,10 +205,6 @@ export function Stage() {
       const vh = window.innerHeight || 1;
       const press = Math.min(1, Math.max(0, y / (vh * 0.7)));
       hero.style.setProperty("--press", String(press));
-      if (cipher && plate) {
-        if (press > 0.02) paintCipher(cipher, plate, press);
-        else cipher.style.opacity = "0";
-      }
       if (press > 0.02) stopIdle();
       else if (!reduced.matches) startIdle();
       if (!cinematic()) return;
@@ -498,21 +426,8 @@ export function Stage() {
           <div className="hero-object">
             <figure className="press-figure">
               <PaperPress />
-              <figcaption>Search pages in a stack. Scrolling presses them flat. The card below is what is kept.</figcaption>
+              <figcaption>Search pages in a stack. The proof appears below, where the kept card can be read.</figcaption>
             </figure>
-            <figure className="plate hero-plate">
-            <div className="card-frame">
-              <img
-                ref={plateRef}
-                src="/teams_output_example.png"
-                width={1024}
-                height={506}
-                alt="Sample Teams card for Quibim: title, website, audience, overview, features, pricing, and source."
-              />
-              <canvas className="cipher-plate" ref={cipherRef} aria-hidden="true" />
-            </div>
-            <figcaption>Sample Digest Card — Illustrative. Not a discovery from today.</figcaption>
-          </figure>
           </div>
         </div>
         <RunDrawer />
