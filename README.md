@@ -1,69 +1,79 @@
 # AI Tool Discovery Agent
 
-A weekly digest of newly launched AI tools for a team that cannot watch the open web. A scheduled GitHub Actions worker runs the pipeline weekly; operators can also run it from the repository CLI. It plans a date window, searches SerpApi web and news, compares the hits, and delivers a short structured list in the console, in Microsoft Teams, or in Slack.
+> **SerpApi India Hackathon 2026 · Track 01 — AI Agents**
 
-This project was built for the SerpApi India Hackathon 2026. This repository is the Track 01 submission. Search uses [`serpapi-search-tools`](https://serpapi.github.io/serpapi-search-tools-python/): Google web with `tbs`, Google News with `after:`, then compare, HTTPS fetch, and Azure extraction. The console prints the digest. Teams and Slack are optional. The CLI, tests, Slack output, and public site are part of this submission.
+## Discover what shipped. Not what ranked.
 
-Clone URL: `https://github.com/Adit-Jain-srm/SerpApi_Track1`
+The AI Tool Discovery Agent turns a noisy, fast-moving web into a concise weekly intelligence brief for product, research, and operations teams.
 
-Live site: [https://serpapi-track1.vercel.app](https://serpapi-track1.vercel.app). The install and command guide is [https://serpapi-track1.vercel.app/guide](https://serpapi-track1.vercel.app/guide). Sign in and save a Teams or Slack incoming webhook at [/subscribe](https://serpapi-track1.vercel.app/subscribe). A normal `python main.py` posts each card to those webhooks. `--skip-subscribers` and the on-site demo do not.
+It plans a date window, searches Google Web and Google News through SerpApi, compares and de-duplicates the evidence, follows relevant product pages, extracts a structured tool record with Azure OpenAI, and delivers the result to the console, Microsoft Teams, or Slack.
 
-## Who it is for
+**Search is the source of truth.** The agent never invents launches. Every item in the digest originates in a compared SerpApi result and is backed by a fetched source page.
 
-Product, research, and operations people who need the launches from a recent window, with aggregator and news noise already removed. The output is a handful of named tools, each with a source page, a short overview, and optional delivery to a Teams or Slack channel.
+| | |
+|---|---|
+| **Live experience** | [serpapi-track1.vercel.app](https://serpapi-track1.vercel.app/) |
+| **Command guide** | [serpapi-track1.vercel.app/guide](https://serpapi-track1.vercel.app/guide) |
+| **Repository** | [github.com/Adit-Jain-srm/SerpApi_Track1](https://github.com/Adit-Jain-srm/SerpApi_Track1) |
 
-SerpApi web and news results are required. Every tool in the digest is a compared search hit that was fetched and extracted.
+## Why it matters
 
-## Pipeline
+AI launches are abundant; reliable discovery is not. Search results mix product pages, launch articles, listicles, aggregators, and stale coverage. Teams need a short list of named products they can act on—not another ranking page to investigate.
+
+This agent makes the rejection step the product:
+
+- **Freshness:** Web and news searches are constrained to the requested date window.
+- **Evidence:** Candidates are compared before any page is fetched or summarized.
+- **Signal:** Roundups, aggregators, duplicates, and irrelevant pages are removed.
+- **Structure:** Each accepted product becomes a predictable record: title, website, audience, overview, features, pricing, and source.
+- **Action:** Results are printed locally and can be delivered directly to the channels where teams work.
+
+## How it works
 
 ```mermaid
-flowchart TD
-  cli[CLI and env] --> plan[Query plan]
-  plan --> web["web_search google, tbs=qdr:dN"]
-  plan --> news["news_search after date"]
-  web --> compare[Compare candidates]
-  news --> compare
-  compare --> fetch[Fetch with TLS]
-  fetch --> extract[Azure extract]
-  extract --> filter[Filter]
-  filter --> console[Console]
-  filter --> teams[Optional Teams]
-  filter --> slack[Optional Slack]
+flowchart LR
+    A[Date window] --> B[SerpApi Web + News]
+    B --> C[Compare and rank]
+    C --> D[Safe page fetch]
+    D --> E[Azure OpenAI extraction]
+    E --> F[Structured digest]
+    F --> G[Console]
+    F --> H[Microsoft Teams]
+    F --> I[Slack]
 ```
 
-```mermaid
-flowchart TD
-  search[Search both engines] --> oneDown{One engine down}
-  oneDown -->|yes| continue[Continue with the other]
-  oneDown -->|no| bothDown{Both engines down}
-  bothDown -->|yes| failed[Exit non-zero]
-  bothDown -->|no| dryRun{Dry run}
-  dryRun -->|yes| table[Stop before fetch]
-  dryRun -->|no| fetched[Fetch and extract]
-  fetched --> teamsMissing{Teams webhook missing}
-  teamsMissing -->|yes| skipTeams[Skip Teams]
-  teamsMissing -->|no| postTeams[Post Teams]
-  fetched --> slackMissing{Slack token or channel missing}
-  slackMissing -->|yes| skipSlack[Skip Slack]
-  slackMissing -->|no| postSlack[Post Slack]
-```
+### 1. Plan
 
-1. **Plan.** `--days` sets the window (default 7). When the flag is omitted, `SEARCH_DAYS` overrides that default. Web search is pinned to `google` with `tbs=qdr:d{N}` (`tbs=qdr:d7` for seven days). Web queries do not get an `after:` suffix. News search uses `google_news` and puts `after:YYYY-MM-DD` in the query, from the UTC start of the window. News does not receive `tbs`.
-2. **Search.** Four announcement queries (just launched, now available, public beta, open-source launch) run through `web_search` and `news_search`. Two homepage queries (we launched, intitle:introducing) run through web search only, inside the same date window. That is ten searches per run. Web links come from `organic_results[].link`. News links come from `news_results[].link`. If one engine fails, the run continues with the other. If both fail, the process exits non-zero.
-3. **Compare.** Each candidate keeps its URL, title, snippet, published time, and which engines produced it. URLs are normalized, aggregator domains are dropped, and duplicates merge. Titles that are already a list ("10 new AI tools", "top 20", "roundup") are dropped before any fetch. What remains is ranked so a product homepage comes before an article. When web and news disagree on the date, the news date is kept. `--max-urls` applies after that rank.
-4. **Act.** Pages are fetched over TLS. When an article names one product homepage, that homepage is fetched next (at most 12 extra pages). A font file, an image, or a host such as Cloudflare does not count as a second product. A listicle that names several products is not followed. Azure OpenAI extracts a structured tool record from the product page. The deployment name is `AZURE_OPENAI_DEPLOYMENT`. When that variable is empty the client defaults to `gpt-5.3-chat`. The call sends `max_completion_tokens` and temperature `1`, which this chat API accepts. The console prints the summary. Teams receives a message when `TEAMS_WEBHOOK_URL` is set and `--skip-teams` was not passed. Slack receives a message when `SLACK_BOT_TOKEN` and `SLACK_CHANNEL_ID` are set and `--skip-slack` was not passed. `--dry-run` prints the comparison table and stops before fetch. It does not call Azure or post to Teams or Slack. A sample of the Teams shape is `assets/teams_output_example.png`.
+`--days` defines the discovery window and defaults to seven days. Google Web uses SerpApi's `tbs=qdr:dN`; Google News uses an `after:YYYY-MM-DD` cutoff based on UTC.
 
-Key setup, the interactive MCP client, and the hackathon notes:
+### 2. Search
 
-- [docs/KEYS.md](docs/KEYS.md)
-- [docs/MCP.md](docs/MCP.md)
-- [docs/HACKATHON.md](docs/HACKATHON.md)
+The agent runs launch-oriented queries across web and news, plus homepage-oriented web queries. Search execution is bounded and resilient: if one engine fails, the other can still produce candidates; if both fail, the run exits clearly instead of reporting a false success.
 
-## Setup
+### 3. Compare
 
-Python 3.10 or higher. A SerpApi key and an Azure OpenAI endpoint, key, and deployment name. Teams and Slack are optional.
+Before fetching anything, candidates are normalized, merged, ranked, and filtered:
 
-### Windows (PowerShell)
+- duplicate URLs collapse into one candidate;
+- aggregator domains and listicle-style titles are removed;
+- product homepages are preferred over commentary pages;
+- news dates take precedence when sources disagree;
+- `--max-urls` controls the extraction budget.
+
+### 4. Extract and deliver
+
+Compared pages are fetched over HTTPS with bounded responses and redirect validation. Azure OpenAI converts the selected product pages into structured `ToolInfo` records. One failed candidate does not discard successful candidates. The digest is then printed and optionally delivered to Teams, Slack, or configured subscribers.
+
+## Quick start
+
+### Requirements
+
+- Python 3.10+
+- A [SerpApi API key](https://serpapi.com/manage-api-key)
+- An Azure OpenAI endpoint, key, and deployment
+- Optional: Teams webhook, Slack bot credentials, or subscriber delivery configuration
+
+### Windows PowerShell
 
 ```powershell
 git clone https://github.com/Adit-Jain-srm/SerpApi_Track1.git
@@ -74,20 +84,7 @@ python -m pip install -r requirements.txt
 Copy-Item .env.example .env
 ```
 
-If script activation is blocked, use cmd instead: `.venv\Scripts\activate.bat`.
-
-### Windows (cmd)
-
-```bat
-git clone https://github.com/Adit-Jain-srm/SerpApi_Track1.git
-cd SerpApi_Track1
-python -m venv .venv
-.venv\Scripts\activate.bat
-python -m pip install -r requirements.txt
-copy .env.example .env
-```
-
-### Unix
+### macOS / Linux
 
 ```bash
 git clone https://github.com/Adit-Jain-srm/SerpApi_Track1.git
@@ -98,115 +95,119 @@ python -m pip install -r requirements.txt
 cp .env.example .env
 ```
 
-Fill in `.env` from [.env.example](.env.example). Required names are `SERPAPI_API_KEY`, `AZURE_OPENAI_ENDPOINT`, and `AZURE_OPENAI_KEY`. `AZURE_OPENAI_DEPLOYMENT` selects the deployment and defaults to `gpt-5.3-chat` when empty. Optional names are `TEAMS_WEBHOOK_URL`, `SLACK_BOT_TOKEN`, `SLACK_CHANNEL_ID`, `SLACK_APP_TOKEN`, `BATCH_SIZE`, `LLM_CONCURRENCY_LIMIT`, and `SEARCH_DAYS`. Slack sits beside Teams. Posting needs the bot token and the channel ID for the **AI-Search-Buddy** app. `SLACK_APP_TOKEN` is stored for a future socket-mode listener and is not used to post. Leave the bot token or channel ID empty to skip Slack. Invite the bot to the channel, then paste the channel ID (not the channel name). `--skip-slack` skips Slack even when both are set, and `--dry-run` does not post to Slack or Teams. Do not commit `.env`. Serper is not a variable in this project.
+Configure the required values in `.env`:
 
-The public site, when deployed, uses Vercel project root `web/` and one variable, `SERPAPI_API_KEY`. Azure, Teams, and Slack stay off Vercel. Details are in [docs/KEYS.md](docs/KEYS.md).
-
-## Run
-
-From the repo root, with the virtual environment active:
-
-```bash
-python main.py
-python main.py --days 7
-python main.py --dry-run
-python main.py --skip-teams
-python main.py --skip-slack
-python main.py --days 7 --max-urls 3
+```dotenv
+SERPAPI_API_KEY=
+AZURE_OPENAI_ENDPOINT=
+AZURE_OPENAI_KEY=
+AZURE_OPENAI_DEPLOYMENT=gpt-5.3-chat
 ```
 
-| Flag | Behavior |
+See [docs/KEYS.md](docs/KEYS.md) for Teams, Slack, Supabase, and deployment configuration. Never commit `.env`.
+
+## Run it
+
+```bash
+# Compare recent search results without fetching pages or using Azure
+python main.py --dry-run --days 7
+
+# Run a small end-to-end digest locally
+python main.py --days 7 --max-urls 3 --skip-teams --skip-slack
+
+# Run with the default seven-day window
+python main.py
+```
+
+| Option | Purpose |
 |---|---|
-| `--days` | Date window in days. Default 7, or `SEARCH_DAYS` when the flag is omitted. Must be a positive integer. |
-| `--dry-run` | Print the comparison table. Do not fetch, call Azure, or post to Teams or Slack. |
-| `--skip-teams` | Skip the webhook. Still print the console summary. |
-| `--skip-slack` | Skip Slack even when the bot token and channel ID are set. Still print the console summary. |
-| `--max-urls` | Cap how many compared candidates are fetched and extracted, after roundups are dropped and homepages are ranked first. Must be a positive integer. |
+| `--days N` | Search the last `N` days. |
+| `--max-urls N` | Limit candidates sent to fetch and extraction. |
+| `--dry-run` | Search and compare only; no page fetch, Azure call, or delivery. |
+| `--skip-teams` | Disable Teams delivery for the run. |
+| `--skip-slack` | Disable Slack delivery for the run. |
 
-`--dry-run` needs `SERPAPI_API_KEY`. It does not need the Azure variables, and it does not call Azure.
+## Deployment model
 
-### Edge cases
+The public Next.js site is deployed on Vercel and provides the product experience, live diagnostics, proof routes, and run guidance. Vercel does **not** spawn the Python discovery worker.
 
-| Input | What happens |
-|---|---|
-| `--days 0` or any negative `--days` | Exit code 2. stderr says `--days must be a positive integer`. No traceback, no search, no fetch, no Teams, no Slack. |
-| `--max-urls 0` or any negative `--max-urls` | Exit code 2. stderr says `--max-urls must be a positive integer`. The run does not print an empty table. |
-| One of web or news fails | The run logs the error and continues with the engine that succeeded. |
-| Web and news both fail | Exit code 1. stderr says both searches failed. |
-| `--dry-run` | Search and the comparison table only. Stops before fetch. |
-| `TEAMS_WEBHOOK_URL` empty, or `--skip-teams` | Console summary only. Teams is skipped. |
-| Slack token or channel empty, or `--skip-slack` | Slack is skipped. The rest of the run continues. |
+The production worker runs through:
 
-On Windows the process sets stdout and stderr to UTF-8, replacing characters the console cannot store, so a snippet outside cp1252 does not abort the table.
+- **GitHub Actions:** scheduled weekly execution;
+- **Repository CLI:** manual execution from a configured machine.
 
-## Tests
+This separation keeps long-running search, crawling, extraction, and delivery work in a durable worker environment while the web application remains fast and transparent.
 
-From the repo root, with the virtual environment active:
+## Quality and safety
+
+The project includes:
+
+- hermetic Python tests with external services mocked;
+- CI checks for Python tests, TypeScript, ESLint, and the production build;
+- SSRF-aware URL validation for crawler and webhook egress;
+- redirect revalidation and bounded response sizes;
+- per-candidate extraction failure isolation;
+- deterministic candidate ordering and deduplication;
+- explicit partial-run and unavailable-runtime states;
+- secret-safe diagnostics and delivery reporting.
+
+Run the test suite locally:
 
 ```bash
 python -m pytest tests -q
 ```
 
-The suite stays offline: a fake search client stands in for SerpApi, and the tests do not call Azure, Teams, or Slack. They cover the date plan, candidate merge, roundup drops, homepage ranking, recency, dry-run, invalid `--days` and `--max-urls`, Windows console text, the Azure chat parameter names, and Teams and Slack formatting.
+Run the web checks:
 
-## Sample Teams message
-
-This is the shape of one webhook message, filled with sample fields so the layout is readable. It is a format example.
-
-![Sample Teams digest card for Quibim](assets/teams_output_example.png)
-
-Sample Teams card of the digest shape: name, website, audience, overview, features, pricing, and source.
-
-![Sample Slack digest for SynthID Detector](assets/Slack_output_example.png)
-
-Sample Slack message of the same digest shape, posted in #tool-updates.
-
-When the website and the source URL are the same, the website line is omitted.
-
-```text
-### 🚀 AI Tool 1: Northstar
-
-**🌐 Website:** [https://northstar.example](https://northstar.example)
-
-**🔗 Source:** [https://northstar.example/blog/launch](https://northstar.example/blog/launch)
-
-**🎯 Target Audience / Use Case:** Developers shipping internal agents
-
-**📝 Overview:**
-Northstar drafts weekly research briefs from a fixed set of sources.
-
-**💡 Key Features:**
-- Watches a date window for new launches
-- Writes a short structured summary
-
-**💰 Pricing:** No pricing information available.
+```bash
+cd web
+npm ci
+npm run typecheck
+npm run lint
+npm run build
 ```
 
-## Layout
+## Delivery preview
+
+The digest is intentionally compact and channel-friendly:
+
+![Sample Teams digest card](assets/teams_output_example.png)
+
+*Illustrative Teams output showing the structured digest shape.*
+
+![Sample Slack digest](assets/Slack_output_example.png)
+
+*Illustrative Slack output using the same structured fields.*
+
+## Project structure
 
 ```text
 SerpApi_Track1/
-├── main.py                 # CLI and console, Teams, or Slack output
+├── main.py                 # CLI entry point
 ├── agents/
-│   ├── config_agent.py     # environment and required keys
-│   ├── pipeline_agent.py   # orchestration
-│   ├── search_agent.py     # web_search and news_search
-│   └── scraper_agent.py    # page fetch and Azure extraction
-├── config/constants.py     # defaults, aggregator domains, queries
-├── models/tool_info.py
-├── output/                 # console, Teams, and Slack
-├── prompts/
-├── utils/
-├── docs/                   # KEYS.md, MCP.md, HACKATHON.md
-├── .env.example
-├── requirements.txt
-└── README.md
+│   ├── search_agent.py     # SerpApi web/news search
+│   ├── pipeline_agent.py   # orchestration and resilience
+│   └── scraper_agent.py    # safe fetch and Azure extraction
+├── config/                 # defaults and query configuration
+├── models/                 # structured ToolInfo model
+├── output/                 # console, Teams, Slack, subscribers
+├── prompts/                # extraction prompts
+├── utils/                  # URL safety and shared helpers
+├── tests/                  # hermetic regression suite
+├── web/                    # Next.js product experience
+├── docs/                   # keys, MCP, and hackathon notes
+└── .github/workflows/      # CI and weekly worker schedule
 ```
 
-`data/blacklist.json` is created at runtime and is not committed.
+## Hackathon submission
+
+This project was built for the [SerpApi India Hackathon 2026](docs/HACKATHON.md), Track 01: AI Agents.
+
+- [Hackathon judging map](docs/HACKATHON.md)
+- [Environment and secrets](docs/KEYS.md)
+- [MCP usage](docs/MCP.md)
 
 ## Author
 
 **Adit Jain**
-
-Repository: https://github.com/Adit-Jain-srm/SerpApi_Track1
+[github.com/Adit-Jain-srm](https://github.com/Adit-Jain-srm)
